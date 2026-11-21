@@ -1,0 +1,55 @@
+﻿<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <script>
+        Swal.fire({
+            icon: 'error',
+            title: 'Hata',
+            text: @Json.Serialize(errorMessage),
+            confirmButtonText: 'Tamam'
+        });
+    </script>
+}
+
+@if (TempData["SuccessMessage"] is string successMessage)
+{
+    <script>
+        Swal.fire({
+            icon: 'success',
+            title: 'Başarılı',
+            text: @Json.Serialize(successMessage),
+            timer: 2000,
+            showConfirmButton: false
+        });
+    </script>
+}
+
+<script>
+
+    // AJAX istekleri için
+
+    async function postJson(url, data) {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const result = await response.json().catch(() => null);
+            Swal.fire({
+                icon: 'error',
+                title: 'Hata',
+                text: result?.message ?? 'Beklenmeyen bir hata oluştu.'
+            });
+            return null;
+        }
+
+        return response.json();
+    }
+
+</script>

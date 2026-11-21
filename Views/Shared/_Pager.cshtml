@@ -1,0 +1,54 @@
+﻿@using Vokabeln.AppData.Entities
+@using Vokabeln.ViewModels
+
+@model PagedResult<WordEntity>
+
+@{
+    int start = Math.Max(1, Model.Page - 2);
+    int end = Math.Min(Model.TotalPages, Model.Page + 2);
+}
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
+
+    <div class="d-flex align-items-center gap-2">
+        <form method="get" class="d-flex align-items-center gap-2">
+            <label for="pageSize" class="col-form-label">Sayfa başına</label>
+            <select id="pageSize" name="pageSize" class="form-select form-select-sm w-auto"
+                    onchange="event.target.form.submit()">
+                @foreach (var size in new[] { 10, 20, 50, 100 })
+                {
+                    <option value="@size" selected="@(Model.PageSize == size)">@size</option>
+                }
+            </select>
+        </form>
+        <span class="text-muted small">Toplam @Model.TotalCount kayıt</span>
+    </div>
+
+    @if (Model.TotalPages > 1)
+    {
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item @(Model.HasPrevious ? "" : "disabled")">
+                    <a class="page-link" asp-route-page="1" asp-route-pageSize="@Model.PageSize">&laquo;</a>
+                </li>
+                <li class="page-item @(Model.HasPrevious ? "" : "disabled")">
+                    <a class="page-link" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize">&lsaquo;</a>
+                </li>
+
+                @for (int i = start; i <= end; i++)
+                {
+                    <li class="page-item @(i == Model.Page ? "active" : "")">
+                        <a class="page-link" asp-route-page="@i" asp-route-pageSize="@Model.PageSize">@i</a>
+                    </li>
+                }
+
+                <li class="page-item @(Model.HasNext ? "" : "disabled")">
+                    <a class="page-link" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize">&rsaquo;</a>
+                </li>
+                <li class="page-item @(Model.HasNext ? "" : "disabled")">
+                    <a class="page-link" asp-route-page="@Model.TotalPages" asp-route-pageSize="@Model.PageSize">&raquo;</a>
+                </li>
+            </ul>
+        </nav>
+    }
+</div>

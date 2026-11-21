@@ -1,0 +1,95 @@
+﻿@using System.Security.Claims
+
+@{
+    var loginTimeStr = User.FindFirst("LoginTimeStamp")?.Value;
+    DateTimeOffset? loginTime = DateTimeOffset.TryParse(loginTimeStr, out var t) ? t : null;
+
+    var expireTimeStr = User.FindFirst("ExpireStamp")?.Value;
+    DateTimeOffset? expireTime = DateTimeOffset.TryParse(expireTimeStr, out var t2) ? t2 : null;
+}
+
+
+
+@await Html.PartialAsync("_Navbar")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="text-center">
+
+    <h1>Ana Sayfa</h1>
+
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <p>Giriş yapıldı: <strong>@User.Identity.Name</strong></p>
+        <p>Roller: @string.Join(", ", User.FindAll(ClaimTypes.Role).Select(c => c.Value))</p>
+        @if (loginTime is not null)
+        {
+            <p>Giriş zamanı: @loginTime.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")</p>
+            
+        }
+        @if (expireTime is not null)
+        {
+            <p>Bitiş zamanı: @expireTime.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")</p>
+            
+        }
+
+        <strong id="kalanSure">Yükleniyor...</strong>
+
+        <form asp-controller="Account" asp-action="Logout" method="post">
+            <button type="submit" class="btn btn-danger">Çıkış Yap</button>
+        </form>
+    }
+    else
+    {
+        <p>Şu an giriş yapılmamış.</p>
+
+        <form asp-controller="Account" asp-action="Login" method="post">
+            <button type="submit" class="btn btn-primary">Dummy User ile Giriş Yap</button>
+        </form>
+    }
+</div>
+
+<button onclick="kalanSureGetir();">BAK</button>
+
+@section Scripts {
+    <script>
+        async function kalanSureGetir() {
+            try {
+                const r = await fetch("/Account/KalanSure");
+
+                if (r.ok) {
+                    const data = await r.json();
+
+                    const dakika = Math.floor(data.saniye / 60);
+                    const saniye = data.saniye % 60;
+
+                    document.getElementById("kalanSure").textContent = `${dakika} dakika ${saniye} saniye`;
+                }
+                else {
+                    window.location.href = "/Home/Index";
+                }
+            }
+            catch (error) {
+                console.error("Kalan süre alınamadı:", error);
+            }
+        }
+
+        // Sayfa açıldığında çalıştır
+        //kalanSureGetir();
+
+        // Her 60 saniyede bir güncelle
+        //setInterval(kalanSureGetir, 60000);
+    </script>
+}

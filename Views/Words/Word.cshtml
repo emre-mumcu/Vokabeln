@@ -1,0 +1,77 @@
+﻿@using Vokabeln.AppData.Enums
+@model Vokabeln.AppData.Entities.WordEntity
+
+
+<div class="container mt-4">
+
+    <div class="card shadow-sm">
+
+        <div class="card-header">
+            <h4 class="mb-0">Add New Word</h4>
+        </div>
+
+        <div class="card-body">
+
+            <form asp-action="Word" method="post">
+
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                <input type="hidden" asp-for="Id" />
+
+                <div class="mb-3 row">
+                    <label asp-for="Word" class="sm:col-2 col-form-label"></label>
+                    <div class="sm:col-10">
+                        <input asp-for="Word" class="form-control" />
+                        <span asp-validation-for="Word" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="mb-3 row">
+                    <label asp-for="WordType" class="sm:col-2 col-form-label"></label>
+                    <div class="sm:col-10">
+                        <select asp-for="WordType" class="form-control" asp-items="Html.GetEnumSelectList<WordType>()">
+                            <option value="">-- Seçiniz --</option>
+                        </select>
+                        <span asp-validation-for="WordType" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="mb-3 row">
+                    <label asp-for="Plural" class="sm:col-2 col-form-label"></label>
+                    <div class="sm:col-10">
+                        <input asp-for="Plural" class="form-control" />
+                    </div>
+                </div>
+
+                <div class="mb-3 row">
+                    <label asp-for="Meaning" class="sm:col-2 col-form-label"> </label>
+                    <div class="sm:col-10">
+                        <textarea asp-for="Meaning" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <div class="mb-3 row">
+                    <label asp-for="Sample" class="sm:col-2 col-form-label"></label>
+                    <div class="sm:col-10">
+                    <textarea asp-for="Sample" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a asp-action="Index" class="btn btn-secondary">İptal</a>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+    
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}
