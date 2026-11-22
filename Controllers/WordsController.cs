@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -8,6 +9,7 @@ using Vokabeln.AppData;
 using Vokabeln.AppData.Entities;
 using Vokabeln.AppData.Enums;
 using Vokabeln.AppLib.Services;
+using Vokabeln.ViewModels;
 
 namespace Vokabeln.Controllers
 {
@@ -216,6 +218,76 @@ namespace Vokabeln.Controllers
 		{
 			var stats = await wordService.GetStatsAsync();
 			return View(stats);
+		}
+
+		[HttpPost]
+		[ValidateAntiForgeryToken]
+		public async Task<IActionResult> DeleteSafetyBackups()
+		{
+			var count = await wordService.DeleteSafetyBackupsAsync();
+
+			TempData["SuccessMessage"] = $"{count} güvenlik yedeği silindi.";
+			return RedirectToAction(nameof(Stats));
+		}
+
+		[HttpGet]
+		public async Task<IActionResult> Print(PrintViewModel filter)
+		{
+			// Hiçbiri seçili değilse (ilk açılış dahil) hepsi seçili say
+			if (!filter.Der && !filter.Die && !filter.Das)
+				filter.Der = filter.Die = filter.Das = true;
+
+			// Formdaki checkbox'lar ModelState yerine bu düzeltilmiş değerleri göstersin
+			ModelState.Clear();
+
+			filter.Words = await wordService.GetForPrintAsync(
+				filter.SelectedType, filter.Der, filter.Die, filter.Das);
+
+			return View(filter);
+		}
+
+		private bool IsLocalRequest()
+		{
+			var ip = HttpContext.Connection.RemoteIpAddress;
+			return ip is null || IPAddress.IsLoopback(ip);
+		}
+
+		private async Task<SqlExplorerViewModel> BuildSqlViewAsync(
+			string? table, string sql = "", bool allowWrite = false, SqlResult? result = null)
+		{
+			return new SqlExplorerViewModel
+			{
+				Tables = await wordService.GetTablesAsync(),
+				Detail = string.IsNullOrWhiteSpace(table) ? null : await wordService.GetTableDetailAsync(table),
+				Sql = sql,
+				AllowWrite = allowWrite,
+				Result = result
+			};
+		}
+
+		[HttpGet]
+		public async Task<IActionResult> Sql(string? table)
+		{
+			if (!IsLocalRequest()) return NotFound();
+
+			return View(await BuildSqlViewAsync(table));
+		}
+
+		[HttpPost]
+		[ValidateAntiForgeryToken]
+		public async Task<IActionResult> Sql(string? table, string? sql, bool allowWrite)
+		{
+			if (!IsLocalRequest()) return NotFound();
+
+			SqlResult? result = null;
+
+			if (string.IsNullOrWhiteSpace(sql))
+				ModelState.AddModelError("", "Lütfen bir SQL komutu yazın.");
+			else
+				result = await wordService.ExecuteSqlAsync(sql, allowWrite);
+
+			// Tablo listesi, komuttan sonra güncel sayılarla oluşturulur
+			return View(await BuildSqlViewAsync(table, sql ?? "", allowWrite, result));
 		}
 	}
 }

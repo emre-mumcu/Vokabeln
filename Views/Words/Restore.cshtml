@@ -1,13 +1,19 @@
 ﻿<div class="container mt-4">
-    <div class="card shadow-sm">
+
+
+    <section class="card">
+        
         <div class="card-header">
             <h4 class="mb-0">Restore Backup</h4>
         </div>
-
         <div class="card-body">
-            <div class="alert theme-danger">
-                Geri yükleme, <strong>mevcut tüm verilerin üzerine yazar</strong>.
-                İşlemden önce mevcut verinin otomatik bir kopyası uygulamanın <code>Backups</code> klasörüne kaydedilir.
+
+            <div class="alert theme-warning" role="alert">
+                <p>
+                    Geri yükleme, <code>mevcut tüm verilerin üzerine yazar</code>.
+                    İşlemden önce mevcut verinin otomatik bir kopyası uygulamanın <code>Backups</code> klasörüne kaydedilir.
+                </p>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
 
             <form asp-action="Restore" method="post" enctype="multipart/form-data">
@@ -31,5 +37,6 @@
                 </div>
             </form>
         </div>
-    </div>
+    </section>
+
 </div>

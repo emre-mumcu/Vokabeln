@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using Vokabeln.AppData;
@@ -354,7 +355,7 @@ public class WordService(AppDbContext dbContext) : IWordService
 		// Güvenlik yedekleri
 		var backupFolder = Path.Combine(AppContext.BaseDirectory, "Backups");
 		var backupFiles = Directory.Exists(backupFolder)
-			? new DirectoryInfo(backupFolder).GetFiles("*.db")
+			? new DirectoryInfo(backupFolder).GetFiles("before-restore-*.db")
 			: [];
 
 		return new DbStatsViewModel
@@ -399,4 +400,274 @@ public class WordService(AppDbContext dbContext) : IWordService
 
 	private static long FileSize(string path)
 		=> !string.IsNullOrEmpty(path) && File.Exists(path) ? new FileInfo(path).Length : 0;
+
+	public Task<int> DeleteSafetyBackupsAsync()
+	{
+		var folder = Path.Combine(AppContext.BaseDirectory, "Backups");
+
+		if (!Directory.Exists(folder))
+			return Task.FromResult(0);
+
+		var deleted = 0;
+
+		foreach (var file in Directory.GetFiles(folder, "before-restore-*.db"))
+		{
+			try
+			{
+				File.Delete(file);
+				deleted++;
+			}
+			catch (IOException)
+			{
+				// Dosya kullanımdaysa atla
+			}
+		}
+
+		return Task.FromResult(deleted);
+	}
+
+	public async Task<List<WordEntity>> GetForPrintAsync(WordType? type, bool der, bool die, bool das)
+	{
+		var query = dbContext.Words.AsNoTracking().AsQueryable();
+
+		if (type is not null)
+			query = query.Where(x => x.WordType == type.Value);
+
+		// Artikel filtresi yalnızca isimlerde ve hepsi seçili değilse uygulanır
+		if (type == WordType.Noun && !(der && die && das))
+		{
+			query = query.Where(x =>
+				(der && x.Word.StartsWith("der ")) ||
+				(die && x.Word.StartsWith("die ")) ||
+				(das && x.Word.StartsWith("das ")));
+		}
+
+		var list = await query.ToListAsync();
+
+		// Sıralama: artikeli yok sayarak (der Tisch -> "Tisch"), Almanca alfabeye göre
+		var comparer = StringComparer.Create(new CultureInfo("de-DE"), ignoreCase: true);
+
+		return list
+			.OrderBy(x => SortKey(x.Word), comparer)
+			.ThenBy(x => x.Word, comparer)
+			.ToList();
+	}
+
+	private static string SortKey(string word)
+	{
+		var w = word.Trim();
+
+		foreach (var article in new[] { "der ", "die ", "das " })
+		{
+			if (w.StartsWith(article, StringComparison.OrdinalIgnoreCase))
+				return w[article.Length..];
+		}
+
+		return w;
+	}
+
+	private const int MaxResultRows = 1000;
+
+	private static string Quote(string name) => "\"" + name.Replace("\"", "\"\"") + "\"";
+
+	public async Task<List<TableStat>> GetTablesAsync()
+	{
+		var conn = (SqliteConnection)dbContext.Database.GetDbConnection();
+		await dbContext.Database.OpenConnectionAsync();
+
+		try
+		{
+			var names = new List<string>();
+
+			using (var cmd = conn.CreateCommand())
+			{
+				cmd.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name;";
+				using var reader = await cmd.ExecuteReaderAsync();
+				while (await reader.ReadAsync())
+					names.Add(reader.GetString(0));
+			}
+
+			var result = new List<TableStat>();
+
+			foreach (var name in names)
+			{
+				var count = await ScalarAsync<long>(conn, $"SELECT COUNT(*) FROM {Quote(name)};");
+				result.Add(new TableStat(name, count));
+			}
+
+			return result;
+		}
+		finally
+		{
+			await dbContext.Database.CloseConnectionAsync();
+		}
+	}
+
+	public async Task<TableDetail?> GetTableDetailAsync(string table)
+	{
+		var conn = (SqliteConnection)dbContext.Database.GetDbConnection();
+		await dbContext.Database.OpenConnectionAsync();
+
+		try
+		{
+			// Tablo gerçekten var mı? (ad parametre olarak veriliyor, SQL'e birleştirilmiyor)
+			string? createSql;
+
+			using (var cmd = conn.CreateCommand())
+			{
+				cmd.CommandText = "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = $name;";
+				cmd.Parameters.AddWithValue("$name", table);
+
+				var value = await cmd.ExecuteScalarAsync();
+				if (value is null) return null;
+
+				createSql = value as string;
+			}
+
+			var columns = new List<ColumnInfo>();
+
+			using (var cmd = conn.CreateCommand())
+			{
+				cmd.CommandText = "SELECT cid, name, type, \"notnull\", dflt_value, pk FROM pragma_table_info($name);";
+				cmd.Parameters.AddWithValue("$name", table);
+
+				using var reader = await cmd.ExecuteReaderAsync();
+				while (await reader.ReadAsync())
+				{
+					columns.Add(new ColumnInfo(
+						reader.GetInt32(0),
+						reader.GetString(1),
+						reader.GetString(2),
+						reader.GetInt32(3) != 0,
+						reader.IsDBNull(4) ? null : reader.GetString(4),
+						reader.GetInt32(5)));
+				}
+			}
+
+			return new TableDetail(table, columns, createSql);
+		}
+		finally
+		{
+			await dbContext.Database.CloseConnectionAsync();
+		}
+	}
+
+	public async Task<SqlResult> ExecuteSqlAsync(string sql, bool allowWrite)
+	{
+		var result = new SqlResult();
+		var path = await GetDbPathAsync();
+
+		// Havuzsuz, ayrı bir bağlantı: query_only ayarı EF'in bağlantı havuzuna sızmaz
+		using var conn = new SqliteConnection($"Data Source={path};Pooling=False");
+		await conn.OpenAsync();
+
+		if (!allowWrite)
+		{
+			using var pragma = conn.CreateCommand();
+			pragma.CommandText = "PRAGMA query_only = ON;";
+			await pragma.ExecuteNonQueryAsync();
+		}
+
+		SqliteTransaction? tx = allowWrite ? (SqliteTransaction)await conn.BeginTransactionAsync() : null;
+		var sw = Stopwatch.StartNew();
+
+		try
+		{
+			using var cmd = conn.CreateCommand();
+			cmd.CommandText = sql;
+			cmd.CommandTimeout = 30;
+			cmd.Transaction = tx;
+
+			using (var reader = await cmd.ExecuteReaderAsync())
+			{
+				// Birden fazla komut varsa sonuç kümesi olan sonuncusu gösterilir
+				do
+				{
+					if (reader.FieldCount > 0)
+					{
+						result.Columns = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToList();
+						result.Rows = [];
+						result.Truncated = false;
+
+						while (await reader.ReadAsync())
+						{
+							if (result.Rows.Count >= MaxResultRows)
+							{
+								result.Truncated = true;
+								break;
+							}
+
+							var row = new string?[reader.FieldCount];
+							for (var i = 0; i < row.Length; i++)
+								row[i] = FormatCell(reader, i);
+
+							result.Rows.Add(row);
+						}
+					}
+				} while (await reader.NextResultAsync());
+
+				result.RowsAffected = reader.RecordsAffected;
+			}
+
+			if (tx is not null)
+				await tx.CommitAsync();
+		}
+		catch (SqliteException ex)
+		{
+			result.Error = ex.Message; // tx dispose edilince geri alınır
+		}
+		finally
+		{
+			if (tx is not null)
+				await tx.DisposeAsync();
+
+			sw.Stop();
+			result.ElapsedMs = sw.ElapsedMilliseconds;
+		}
+
+		// SQL ile veri değiştiyse EF'in önbelleğindeki varlıklar eskimiş olabilir
+		if (allowWrite && result.Error is null)
+			dbContext.ChangeTracker.Clear();
+
+		return result;
+	}
+
+	private async Task<string> GetDbPathAsync()
+	{
+		var conn = (SqliteConnection)dbContext.Database.GetDbConnection();
+		await dbContext.Database.OpenConnectionAsync();
+
+		try
+		{
+			using var cmd = conn.CreateCommand();
+			cmd.CommandText = "PRAGMA database_list;";
+			using var reader = await cmd.ExecuteReaderAsync();
+
+			while (await reader.ReadAsync())
+			{
+				if (reader.GetString(1) == "main" && !reader.IsDBNull(2) && reader.GetString(2).Length > 0)
+					return reader.GetString(2);
+			}
+		}
+		finally
+		{
+			await dbContext.Database.CloseConnectionAsync();
+		}
+
+		throw new InvalidOperationException("Veritabanı dosya yolu bulunamadı (bellek içi veritabanı olabilir).");
+	}
+
+	private static string? FormatCell(SqliteDataReader reader, int index)
+	{
+		if (reader.IsDBNull(index)) return null;
+
+		var value = reader.GetValue(index);
+
+		return value switch
+		{
+			byte[] bytes => $"[BLOB {bytes.Length} bayt]",
+			IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
+			_ => value.ToString()
+		};
+	}
 }

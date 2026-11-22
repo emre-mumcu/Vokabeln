@@ -100,6 +100,29 @@
                     <tr><th>Son yedek</th><td>@(Model.LastBackup?.ToString("dd.MM.yyyy HH:mm") ?? "-")</td></tr>
                 </tbody>
             </table>
+
+
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header"><h4 class="mb-0">Güvenlik yedekleri</h4></div>
+        <div class="card-body">
+            <table class="table mb-3">
+                <tbody>
+                    <tr><th>Dosya sayısı</th><td>@Model.BackupCount</td></tr>
+                    <tr><th>Toplam boyut</th><td>@Bytes(Model.BackupBytes)</td></tr>
+                    <tr><th>Son yedek</th><td>@(Model.LastBackup?.ToString("dd.MM.yyyy HH:mm") ?? "-")</td></tr>
+                </tbody>
+            </table>
+
+            @if (Model.BackupCount > 0)
+            {
+                <form asp-action="DeleteSafetyBackups" method="post"
+                      onsubmit="return confirm('Tüm güvenlik yedekleri kalıcı olarak silinecek. Devam edilsin mi?');">
+                    <button type="submit" class="btn btn-link fg-danger p-0">Yedekleri sil</button>
+                </form>
+            }
         </div>
     </div>
 

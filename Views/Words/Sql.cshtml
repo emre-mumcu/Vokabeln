@@ -1,0 +1,220 @@
+﻿@using Vokabeln.ViewModels
+@model SqlExplorerViewModel
+
+<div class="container mt-4">
+
+    <div class="row">
+
+        <div class="md:col-4 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header"><h4 class="mb-0">Tablolar</h4></div>
+                <div class="card-body">
+                    <table class="table mb-0">
+                        <tbody>
+                            @foreach (var t in Model.Tables)
+                            {
+                                var selected = Model.Detail?.Name == t.Name;
+                                <tr>
+                                    <td>
+                                        <a asp-action="Sql" asp-route-table="@t.Name">
+                                            @if (selected)
+                                            {
+                                                <strong>@t.Name</strong>
+                                            }
+                                            else
+                                            {
+
+                                                @t.Name
+                                            }
+                                        </a>
+                                    </td>
+                                    <td class="text-end">@t.RowCount.ToString("N0")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="md:col-8 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h4 class="mb-0">@(Model.Detail is null ? "Alanlar" : $"Alanlar: {Model.Detail.Name}")</h4>
+                </div>
+                <div class="card-body">
+                    @if (Model.Detail is null)
+                    {
+                        <p class="mb-0 fg-secondary">Alanları görmek için soldan bir tablo seçin.</p>
+                    }
+                    else
+                    {
+                        <div style="overflow-x:auto">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Alan</th>
+                                        <th>Tür</th>
+                                        <th>NOT NULL</th>
+                                        <th>Varsayılan</th>
+                                        <th>PK</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var c in Model.Detail.Columns)
+                                    {
+                                        <tr>
+                                            <td>@c.Cid</td>
+                                            <td>@c.Name</td>
+                                            <td>@c.Type</td>
+                                            <td>@(c.NotNull ? "✓" : "")</td>
+                                            <td>@c.Default</td>
+                                            <td>@(c.PkOrder > 0 ? "✓" : "")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(Model.Detail.CreateSql))
+                        {
+                            <details>
+                                <summary>CREATE TABLE ifadesi</summary>
+                                <pre class="mt-2 mb-0"><code>@Model.Detail.CreateSql</code></pre>
+                            </details>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header"><h4 class="mb-0">SQL</h4></div>
+        <div class="card-body">
+
+            <form asp-action="Sql" method="post" id="sqlForm">
+                <div asp-validation-summary="All" class="fg-danger mb-3"></div>
+
+                <input type="hidden" name="table" value="@Model.Detail?.Name" />
+
+                <div class="mb-3">
+                    <textarea name="sql" id="sqlBox" class="form-control" rows="8" spellcheck="false"
+                              style="font-family: ui-monospace, Consolas, monospace"
+                              placeholder="SELECT * FROM Words LIMIT 100;">@Model.Sql</textarea>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="allowWrite" name="allowWrite" value="true"
+                    @(Model.AllowWrite ? "checked" : "") />
+                    <label class="form-check-label" for="allowWrite">
+                        Veriyi değiştirmeye izin ver
+                        <small class="fg-secondary">(INSERT, UPDATE, DELETE, DROP... Kapalıyken yalnızca okuma yapılır)</small>
+                    </label>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    @if (Model.Detail is not null)
+                    {
+                        <button type="button" class="btn btn-secondary" id="sampleBtn"
+                                data-sql='SELECT * FROM "@Model.Detail.Name" LIMIT 100;'>
+                            Örnek sorgu
+                        </button>
+                    }
+                    <button type="submit" class="btn btn-primary">Çalıştır (Ctrl+Enter)</button>
+                </div>
+            </form>
+
+            @if (Model.Result is { } r)
+            {
+                <hr />
+
+                @if (r.Error is not null)
+                {
+                    <div class="alert theme-danger"><strong>Hata:</strong> @r.Error</div>
+                }
+                else if (r.HasResultSet)
+                {
+                    <p class="fg-secondary">
+                        @r.Rows.Count satır, @r.ElapsedMs ms
+                        @if (r.Truncated)
+                        {
+                            <text> (ilk 1000 satır gösteriliyor)</text>
+                        }
+                    </p>
+
+                    <div style="overflow-x:auto">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    @foreach (var col in r.Columns)
+                                    {
+                                        <th>@col</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in r.Rows)
+                                {
+                                    <tr>
+                                        @foreach (var cell in row)
+                                        {
+                                            <td>
+                                                @if (cell is null)
+                                                {
+                                                    <em class="fg-secondary">NULL</em>
+                                                }
+                                                else
+                                                {
+
+                                                    @cell
+                                                }
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert theme-success">
+                        Komut çalıştı (@r.ElapsedMs ms).
+                        @if (r.RowsAffected >= 0)
+                        {
+                            <text> @r.RowsAffected satır etkilendi.</text>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const box = document.getElementById("sqlBox");
+            const form = document.getElementById("sqlForm");
+            const btn = document.getElementById("sampleBtn");
+
+            if (btn) {
+                btn.addEventListener("click", function () {
+                    box.value = btn.dataset.sql;
+                    box.focus();
+                });
+            }
+
+            box.addEventListener("keydown", function (e) {
+                if (e.ctrlKey && e.key === "Enter") {
+                    e.preventDefault();
+                    form.requestSubmit();
+                }
+            });
+        })();
+    </script>
+}

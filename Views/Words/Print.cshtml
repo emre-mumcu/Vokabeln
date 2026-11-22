@@ -1,0 +1,187 @@
+﻿@using Vokabeln.AppData.Enums
+@using Vokabeln.ViewModels
+@model PrintViewModel
+
+@functions {
+    static string RowClass(string word)
+    {
+        var w = word.TrimStart();
+
+        if (w.StartsWith("der ", StringComparison.OrdinalIgnoreCase)) return "row-der";
+        if (w.StartsWith("die ", StringComparison.OrdinalIgnoreCase)) return "row-die";
+        if (w.StartsWith("das ", StringComparison.OrdinalIgnoreCase)) return "row-das";
+        return "row-other";
+    }
+}
+
+<style>
+    .print-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11pt;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+        .print-table th,
+        .print-table td {
+            border: 1px solid #999;
+            padding: 6px 8px;
+            vertical-align: top;
+        }
+
+        .print-table th {
+            text-align: left;
+        }
+
+        .print-table thead {
+            display: table-header-group;
+        }
+        /* her sayfada başlık tekrarlansın */
+        .print-table tr {
+            break-inside: avoid;
+        }
+
+    .col-word {
+        width: 24%;
+    }
+
+    .col-mean {
+        width: 28%;
+    }
+
+    .col-sample {
+        width: 48%;
+    }
+
+    .plural {
+        font-size: 0.9em;
+        opacity: .85;
+    }
+
+    .row-der {
+        color: light-dark(#0b4fc2, #6ea8fe);
+    }
+    /* mavi */
+    .row-das {
+        color: light-dark(#1b7a2f, #6fd488);
+    }
+    /* yeşil */
+    .row-die {
+        color: light-dark(#c62828, #ff8a80);
+    }
+    /* kırmızı */
+    .row-other {
+        color: light-dark(#000, #f8f9fa);
+    }
+    /* siyah */
+
+    @@media print {
+        /* Yazdırmada her zaman açık tema */
+        :root, [data-bs-theme] {
+            color-scheme: light !important;
+        }
+
+        body {
+            background: #fff !important;
+        }
+
+        nav.navbar, .no-print {
+            display: none !important;
+        }
+
+        @@page {
+            margin: 15mm;
+        }
+    }
+</style>
+
+<div class="container mt-4">
+
+    <div class="card shadow-sm mb-4 no-print">
+        <div class="card-header"><h4 class="mb-0">Print Words</h4></div>
+        <div class="card-body">
+            <form asp-action="Print" method="get">
+
+                <div class="mb-3">
+                    <label asp-for="SelectedType" class="form-label">Kelime türü</label>
+                    <select asp-for="SelectedType" id="typeSelect" class="form-control"
+                            asp-items="Html.GetEnumSelectList<WordType>()">
+                        <option value="">Tümü</option>
+                    </select>
+                </div>
+
+                <div class="mb-3" id="articleBox" @(Model.SelectedType == WordType.Noun ? "" : "hidden")>
+                    <label class="form-label d-block">Artikel</label>
+
+                    <div class="form-check">
+                        <input asp-for="Der" class="form-check-input" />
+                        <label asp-for="Der" class="form-check-label">der</label>
+                    </div>
+                    <div class="form-check">
+                        <input asp-for="Die" class="form-check-input" />
+                        <label asp-for="Die" class="form-check-label">die</label>
+                    </div>
+                    <div class="form-check">
+                        <input asp-for="Das" class="form-check-input" />
+                        <label asp-for="Das" class="form-check-label">das</label>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="submit" class="btn btn-secondary">Listele</button>
+                    <button type="button" class="btn btn-primary" onclick="window.print()">Yazdır</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <p class="no-print">@Model.Words.Count kelime listelendi.</p>
+
+    @if (Model.Words.Count == 0)
+    {
+        <p class="no-print">Seçilen filtreye uygun kelime yok.</p>
+    }
+    else
+    {
+        <table class="print-table">
+            <thead>
+                <tr>
+                    <th class="col-word">Kelime</th>
+                    <th class="col-mean">Anlam</th>
+                    <th class="col-sample">Örnek</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var w in Model.Words)
+                {
+                    <tr class="@RowClass(w.Word)">
+                        <td>
+                            <div><strong>@w.Word</strong></div>
+                            @if (!string.IsNullOrWhiteSpace(w.Plural))
+                            {
+                                <div class="plural">@w.Plural</div>
+                            }
+                        </td>
+                        <td>@w.Meaning</td>
+                        <td>@w.Sample</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const select = document.getElementById("typeSelect");
+            const box = document.getElementById("articleBox");
+            const nounValue = "@((int)WordType.Noun)";
+
+            select.addEventListener("change", function () {
+                box.hidden = select.value !== nounValue;
+            });
+        })();
+    </script>
+}
