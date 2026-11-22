@@ -210,5 +210,12 @@ namespace Vokabeln.Controllers
 					System.IO.File.Delete(tempPath);
 			}
 		}
+
+		[HttpGet]
+		public async Task<IActionResult> Stats()
+		{
+			var stats = await wordService.GetStatsAsync();
+			return View(stats);
+		}
 	}
 }

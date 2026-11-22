@@ -1,6 +1,8 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.Globalization;
+using System.Runtime.InteropServices;
 using Vokabeln.AppData;
 using Vokabeln.AppData.Entities;
 using Vokabeln.AppData.Enums;
@@ -10,40 +12,40 @@ namespace Vokabeln.AppLib.Services;
 
 public class WordService(AppDbContext dbContext) : IWordService
 {
-    public async Task<WordEntity?> GetByIdAsync(int id)
-    {
-        return await dbContext.Words.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-    }
+	public async Task<WordEntity?> GetByIdAsync(int id)
+	{
+		return await dbContext.Words.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+	}
 
-    public async Task<WordEntity> SaveAsync(WordEntity entity)
-    {
-        WordEntity target;
+	public async Task<WordEntity> SaveAsync(WordEntity entity)
+	{
+		WordEntity target;
 
-        if (entity.Id == 0)
-        {
-            target = entity;
-            dbContext.Words.Add(target);
-        }
-        else
-        {
-            target = await dbContext.Words.FindAsync(entity.Id)
-                 ?? throw new KeyNotFoundException($"Id: {entity.Id} NOT found!");
+		if (entity.Id == 0)
+		{
+			target = entity;
+			dbContext.Words.Add(target);
+		}
+		else
+		{
+			target = await dbContext.Words.FindAsync(entity.Id)
+				 ?? throw new KeyNotFoundException($"Id: {entity.Id} NOT found!");
 
-            target.Word = entity.Word;
-            target.WordType = entity.WordType;
-            target.Plural = entity.Plural;
-            target.Meaning = entity.Meaning;
-            target.Sample = entity.Sample;
-        }
+			target.Word = entity.Word;
+			target.WordType = entity.WordType;
+			target.Plural = entity.Plural;
+			target.Meaning = entity.Meaning;
+			target.Sample = entity.Sample;
+		}
 
-        await dbContext.SaveChangesAsync();
-        return target;
-    }
+		await dbContext.SaveChangesAsync();
+		return target;
+	}
 
 	public Task<PagedResult<WordEntity>> GetPagedAsync(int page, int pageSize)
 	{
 		return dbContext.Words
-            .AsNoTracking()
+			.AsNoTracking()
 			.OrderBy(x => x.Word)
 			.ToPagedResultAsync(page, pageSize);
 	}
@@ -257,4 +259,144 @@ public class WordService(AppDbContext dbContext) : IWordService
 		// Bellekteki eski varlıkları at
 		dbContext.ChangeTracker.Clear();
 	}
+
+	public async Task<DbStatsViewModel> GetStatsAsync()
+	{
+		var conn = (SqliteConnection)dbContext.Database.GetDbConnection();
+		await dbContext.Database.OpenConnectionAsync();
+
+		var path = "";
+		long pageSize, pageCount, freePages;
+		string journalMode, sqliteVersion;
+		var tables = new List<TableStat>();
+
+		try
+		{
+			// Ana veritabanı dosyasının mutlak yolu
+			using (var cmd = conn.CreateCommand())
+			{
+				cmd.CommandText = "PRAGMA database_list;";
+				using var reader = await cmd.ExecuteReaderAsync();
+				while (await reader.ReadAsync())
+				{
+					if (reader.GetString(1) == "main")
+						path = reader.IsDBNull(2) ? "" : reader.GetString(2);
+				}
+			}
+
+			pageSize = await ScalarAsync<long>(conn, "PRAGMA page_size;");
+			pageCount = await ScalarAsync<long>(conn, "PRAGMA page_count;");
+			freePages = await ScalarAsync<long>(conn, "PRAGMA freelist_count;");
+			journalMode = await ScalarAsync<string>(conn, "PRAGMA journal_mode;");
+			sqliteVersion = await ScalarAsync<string>(conn, "SELECT sqlite_version();");
+
+			// Tablo adları
+			var tableNames = new List<string>();
+			using (var cmd = conn.CreateCommand())
+			{
+				cmd.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name;";
+				using var reader = await cmd.ExecuteReaderAsync();
+				while (await reader.ReadAsync())
+					tableNames.Add(reader.GetString(0));
+			}
+
+			// Her tablonun kayıt sayısı (ad sqlite_master'dan geldiği için güvenli, yine de tırnaklıyoruz)
+			foreach (var name in tableNames)
+			{
+				var quoted = "\"" + name.Replace("\"", "\"\"") + "\"";
+				var count = await ScalarAsync<long>(conn, $"SELECT COUNT(*) FROM {quoted};");
+				tables.Add(new TableStat(name, count));
+			}
+		}
+		finally
+		{
+			await dbContext.Database.CloseConnectionAsync();
+		}
+
+		// Kelime istatistikleri
+		var words = dbContext.Words.AsNoTracking();
+
+		var total = await words.CountAsync();
+
+		var byTypeRaw = await words
+			.GroupBy(x => x.WordType)
+			.Select(g => new { Type = g.Key, Count = g.Count() })
+			.ToListAsync();
+
+		var byType = byTypeRaw
+			.Select(x => new WordTypeStat(x.Type.ToString(), x.Count))
+			.OrderByDescending(x => x.Count)
+			.ToList();
+
+		var der = await words.CountAsync(x => x.Word.StartsWith("der "));
+		var die = await words.CountAsync(x => x.Word.StartsWith("die "));
+		var das = await words.CountAsync(x => x.Word.StartsWith("das "));
+
+		var missingMeaning = await words.CountAsync(x => x.Meaning == null || x.Meaning == "");
+		var missingSample = await words.CountAsync(x => x.Sample == null || x.Sample == "");
+
+		var nounsMissingPlural = await words.CountAsync(x =>
+			(x.Word.StartsWith("der ") || x.Word.StartsWith("die ") || x.Word.StartsWith("das ")) &&
+			(x.Plural == null || x.Plural == ""));
+
+		var avgLength = await words.AverageAsync(x => (double?)x.Word.Length) ?? 0;
+
+		var longest = await words
+			.OrderByDescending(x => x.Word.Length)
+			.Select(x => x.Word)
+			.FirstOrDefaultAsync();
+
+		var duplicateGroups = await words
+			.GroupBy(x => x.Word.ToLower())
+			.Where(g => g.Count() > 1)
+			.CountAsync();
+
+		// Güvenlik yedekleri
+		var backupFolder = Path.Combine(AppContext.BaseDirectory, "Backups");
+		var backupFiles = Directory.Exists(backupFolder)
+			? new DirectoryInfo(backupFolder).GetFiles("*.db")
+			: [];
+
+		return new DbStatsViewModel
+		{
+			FilePath = path,
+			FileSizeBytes = FileSize(path),
+			WalSizeBytes = FileSize(path + "-wal"),
+			ShmSizeBytes = FileSize(path + "-shm"),
+			PageSize = pageSize,
+			PageCount = pageCount,
+			FreePages = freePages,
+			JournalMode = journalMode,
+			SqliteVersion = sqliteVersion,
+			DotNetVersion = RuntimeInformation.FrameworkDescription,
+			Tables = tables,
+
+			TotalWords = total,
+			ByType = byType,
+			DerCount = der,
+			DieCount = die,
+			DasCount = das,
+			MissingMeaning = missingMeaning,
+			MissingSample = missingSample,
+			NounsMissingPlural = nounsMissingPlural,
+			AverageWordLength = avgLength,
+			LongestWord = longest,
+			DuplicateGroups = duplicateGroups,
+
+			BackupCount = backupFiles.Length,
+			BackupBytes = backupFiles.Sum(f => f.Length),
+			LastBackup = backupFiles.Length > 0 ? backupFiles.Max(f => f.LastWriteTime) : null
+		};
+	}
+
+	private static async Task<T> ScalarAsync<T>(SqliteConnection connection, string sql)
+	{
+		using var cmd = connection.CreateCommand();
+		cmd.CommandText = sql;
+		var result = await cmd.ExecuteScalarAsync();
+		return (T)Convert.ChangeType(result!, typeof(T), CultureInfo.InvariantCulture);
+	}
+
+	private static long FileSize(string path)
+		=> !string.IsNullOrEmpty(path) && File.Exists(path) ? new FileInfo(path).Length : 0;
 }

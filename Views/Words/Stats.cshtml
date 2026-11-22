@@ -1,0 +1,106 @@
+﻿@using Vokabeln.ViewModels
+@model DbStatsViewModel
+
+@functions {
+    static string Bytes(long b)
+    {
+        string[] units = { "B", "KB", "MB", "GB" };
+        double v = b;
+        var i = 0;
+        while (v >= 1024 && i < units.Length - 1) { v /= 1024; i++; }
+        return $"{v:0.##} {units[i]}";
+    }
+
+    static string Percent(int part, int total)
+        => total == 0 ? "-" : $"{100.0 * part / total:0.#}%";
+}
+
+<div class="container mt-4">
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header"><h4 class="mb-0">Database</h4></div>
+        <div class="card-body">
+            <table class="table mb-0">
+                <tbody>
+                    <tr><th>Dosya yolu</th><td><code>@Model.FilePath</code></td></tr>
+                    <tr><th>Dosya boyutu</th><td>@Bytes(Model.FileSizeBytes)</td></tr>
+                    <tr><th>WAL / SHM dosyaları</th><td>@Bytes(Model.WalSizeBytes) / @Bytes(Model.ShmSizeBytes)</td></tr>
+                    <tr><th>Sayfa boyutu × sayfa sayısı</th><td>@Model.PageSize × @Model.PageCount (@Bytes(Model.LogicalSizeBytes))</td></tr>
+                    <tr><th>Boşta kalan alan</th><td>@Model.FreePages sayfa (@Bytes(Model.FreeBytes))</td></tr>
+                    <tr><th>Journal modu</th><td>@Model.JournalMode</td></tr>
+                    <tr><th>SQLite sürümü</th><td>@Model.SqliteVersion</td></tr>
+                    <tr><th>Çalışma ortamı</th><td>@Model.DotNetVersion</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header"><h4 class="mb-0">Tablolar</h4></div>
+        <div class="card-body">
+            <table class="table mb-0">
+                <thead>
+                    <tr><th>Tablo</th><th class="text-end">Kayıt sayısı</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in Model.Tables)
+                    {
+                        <tr>
+                            <td>@t.Name</td>
+                            <td class="text-end">@t.RowCount.ToString("N0")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header"><h4 class="mb-0">Kelimeler</h4></div>
+        <div class="card-body">
+            <table class="table mb-4">
+                <tbody>
+                    <tr><th>Toplam kelime</th><td>@Model.TotalWords.ToString("N0")</td></tr>
+                    <tr><th>der / die / das</th><td>@Model.DerCount / @Model.DieCount / @Model.DasCount</td></tr>
+                    <tr><th>Anlamı eksik</th><td>@Model.MissingMeaning (@Percent(Model.MissingMeaning, Model.TotalWords))</td></tr>
+                    <tr><th>Örnek cümlesi eksik</th><td>@Model.MissingSample (@Percent(Model.MissingSample, Model.TotalWords))</td></tr>
+                    <tr><th>Çoğulu eksik isimler</th><td>@Model.NounsMissingPlural</td></tr>
+                    <tr><th>Ortalama kelime uzunluğu</th><td>@Model.AverageWordLength.ToString("0.#") karakter</td></tr>
+                    <tr><th>En uzun kelime</th><td>@(Model.LongestWord ?? "-")</td></tr>
+                    <tr><th>Büyük/küçük harf farkıyla tekrar eden kelime</th><td>@Model.DuplicateGroups</td></tr>
+                </tbody>
+            </table>
+
+            <h5>Türe göre dağılım</h5>
+            <table class="table mb-0">
+                <thead>
+                    <tr><th>Tür</th><th class="text-end">Adet</th><th class="text-end">Oran</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in Model.ByType)
+                    {
+                        <tr>
+                            <td>@t.Type</td>
+                            <td class="text-end">@t.Count</td>
+                            <td class="text-end">@Percent(t.Count, Model.TotalWords)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header"><h4 class="mb-0">Güvenlik yedekleri</h4></div>
+        <div class="card-body">
+            <table class="table mb-0">
+                <tbody>
+                    <tr><th>Dosya sayısı</th><td>@Model.BackupCount</td></tr>
+                    <tr><th>Toplam boyut</th><td>@Bytes(Model.BackupBytes)</td></tr>
+                    <tr><th>Son yedek</th><td>@(Model.LastBackup?.ToString("dd.MM.yyyy HH:mm") ?? "-")</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
