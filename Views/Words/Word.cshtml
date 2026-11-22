@@ -14,7 +14,7 @@
 
             <form asp-action="Word" method="post">
 
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                <div asp-validation-summary="ModelOnly" class="fg-danger mb-3"></div>
 
                 <input type="hidden" asp-for="Id" />
 
@@ -22,7 +22,7 @@
                     <label asp-for="Word" class="sm:col-2 col-form-label"></label>
                     <div class="sm:col-10">
                         <input asp-for="Word" class="form-control" />
-                        <span asp-validation-for="Word" class="text-danger"></span>
+                        <span asp-validation-for="Word" class="fg-danger"></span>
                     </div>
                 </div>
 
@@ -32,11 +32,11 @@
                         <select asp-for="WordType" class="form-control" asp-items="Html.GetEnumSelectList<WordType>()">
                             <option value="">-- Seçiniz --</option>
                         </select>
-                        <span asp-validation-for="WordType" class="text-danger"></span>
+                        <span asp-validation-for="WordType" class="fg-danger"></span>
                     </div>
                 </div>
 
-                <div class="mb-3 row">
+                <div class="mb-3 row d-none" id="pluralRow">
                     <label asp-for="Plural" class="sm:col-2 col-form-label"></label>
                     <div class="sm:col-10">
                         <input asp-for="Plural" class="form-control" />
@@ -53,7 +53,7 @@
                 <div class="mb-3 row">
                     <label asp-for="Sample" class="sm:col-2 col-form-label"></label>
                     <div class="sm:col-10">
-                    <textarea asp-for="Sample" class="form-control" rows="3"></textarea>
+                        <textarea asp-for="Sample" class="form-control" rows="3"></textarea>
                     </div>
                 </div>
 
@@ -74,4 +74,34 @@
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
+
+    <script>
+        (function () {
+            const wordInput = document.getElementById("Word");
+            const typeSelect = document.getElementById("WordType");
+            const pluralInput = document.getElementById("Plural");
+            
+            const pluralRow = document.getElementById("pluralRow");
+
+            // Enum'daki "Noun" seçeneğinin value'sunu metninden bul
+            const nounOption = Array.from(typeSelect.options).find(o => o.text.trim().toLowerCase() === "noun");
+
+            function updateByArticle() 
+            {
+                const startsWithArticle = /^\s*(der|die|das)\s/i.test(wordInput.value);
+
+                if (startsWithArticle) {
+                    if (nounOption) typeSelect.value = nounOption.value;
+                    pluralRow.classList.remove("d-none");
+                } else {
+                    typeSelect.value = "";          // -- Seçiniz --
+                    pluralRow.classList.add("d-none");
+                    pluralInput.value = "";         // gizlenen alanda eski değer kalmasın
+                }
+            }
+
+            wordInput.addEventListener("input", updateByArticle);
+            updateByArticle(); // sayfa açılışında (güncelleme modunda) da çalışsın
+        })();
+    </script>
 }

@@ -1,0 +1,82 @@
+﻿@using Vokabeln.ViewModels
+
+@model ImportResult
+
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h4 class="mb-0">Import Result</h4>
+        </div>
+
+        <div class="card-body">
+            <div class="alert theme-success">
+                <strong>@Model.AddedCount</strong> words added.
+            </div>
+
+            @if (Model.Added.Count > 0)
+            {
+                <ul class="mb-4">
+                    @foreach (var word in Model.Added)
+                    {
+                        <li>@word</li>
+                    }
+                </ul>
+            }
+
+            <div class="alert theme-warning">
+                <strong>@Model.SkippedCount</strong> words skipped.
+            </div>
+
+            @if (Model.Skipped.Count > 0)
+            {
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Kelime</th>
+                            <th>Sebep</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Skipped)
+                        {
+                            <tr>
+                                <td>@item.Word</td>
+                                <td>@item.Reason</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            <div class="alert theme-danger mt-4">
+                <strong>@Model.FailedCount</strong> kelime kaydedilemedi.
+            </div>
+
+            @if (Model.Failed.Count > 0)
+            {
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Kelime</th>
+                            <th>Hata</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Failed)
+                        {
+                            <tr>
+                                <td>@item.Word</td>
+                                <td>@item.Error</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            <div class="d-flex justify-content-end gap-2">
+                <a asp-action="Import" class="btn btn-secondary">New Import</a>
+                <a asp-action="Index" class="btn btn-primary">Back to List</a>
+            </div>
+        </div>
+    </div>
+</div>
