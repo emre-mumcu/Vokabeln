@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
 using Vokabeln.AppData;
 using Vokabeln.AppLib.Filters;
 using Vokabeln.AppLib.Services;
@@ -12,6 +15,9 @@ using Vokabeln.AppLib.Services;
 /// Dependency Injection (DI) konteyneri (builder.Services)
 /// 
 var builder = WebApplication.CreateBuilder(args);
+
+
+builder.WebHost.UseUrls("http://localhost:5077");
 
 
 /// 
@@ -118,7 +124,41 @@ app.MapControllers();
 /// 
 app.MapDefaultControllerRoute();
 
+
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+	var url = app.Services.GetRequiredService<IServer>()
+				  .Features.Get<IServerAddressesFeature>()?
+				  .Addresses.FirstOrDefault() ?? "http://localhost:5000";
+
+	// 0.0.0.0, [::] veya * ile dinleniyorsa tarayıcı için localhost'a çevir
+	url = url.Replace("0.0.0.0", "localhost")
+			 .Replace("[::]", "localhost")
+			 .Replace("*", "localhost");
+
+	OpenBrowser(url);
+});
+
+
 /// 
 /// Sunucuyu başlatır ve uygulama kapanana kadar istekleri dinler (bloklayıcı çağrıdır).
 /// 
 app.Run();
+
+
+static void OpenBrowser(string url)
+{
+	try
+	{
+		if (OperatingSystem.IsWindows())
+			Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+		else if (OperatingSystem.IsMacOS())
+			Process.Start("open", url);
+		else if (OperatingSystem.IsLinux())
+			Process.Start("xdg-open", url);
+	}
+	catch
+	{
+		// Tarayıcı açılamazsa uygulama yine de çalışmaya devam etsin
+	}
+}
