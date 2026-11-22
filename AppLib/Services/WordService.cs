@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using System;
 using Vokabeln.AppData;
@@ -156,5 +157,104 @@ public class WordService(AppDbContext dbContext) : IWordService
 		}
 
 		return new ImportResult(added, skipped, failed);
+	}
+
+	public async Task<string> CreateBackupAsync()
+	{
+		var tempPath = Path.Combine(Path.GetTempPath(), $"vokabeln-{Guid.NewGuid():N}.db");
+		await BackupToAsync(tempPath);
+		return tempPath;
+	}
+
+	private async Task BackupToAsync(string destinationPath)
+	{
+		var source = (SqliteConnection)dbContext.Database.GetDbConnection();
+		await dbContext.Database.OpenConnectionAsync();
+
+		try
+		{
+			using var destination = new SqliteConnection($"Data Source={destinationPath};Pooling=False");
+			source.BackupDatabase(destination);
+		}
+		finally
+		{
+			await dbContext.Database.CloseConnectionAsync();
+		}
+	}
+
+	public async Task<string> CreateBackupAsyncEski()
+	{
+		var tempPath = Path.Combine(Path.GetTempPath(), $"vokabeln-{Guid.NewGuid():N}.db");
+
+		var source = (SqliteConnection)dbContext.Database.GetDbConnection();
+		await dbContext.Database.OpenConnectionAsync();
+
+		try
+		{
+			// Pooling=False: kopya bağlantısı kapanınca dosya kilidi hemen bırakılsın
+			using var destination = new SqliteConnection($"Data Source={tempPath};Pooling=False");
+			source.BackupDatabase(destination);
+		}
+		finally
+		{
+			await dbContext.Database.CloseConnectionAsync();
+		}
+
+		return tempPath;
+	}
+
+	public async Task RestoreAsync(string uploadedDbPath)
+	{
+		var uploadedConnectionString = $"Data Source={uploadedDbPath};Mode=ReadOnly;Pooling=False";
+
+		// 1) Yüklenen dosyayı doğrula
+		using (var check = new SqliteConnection(uploadedConnectionString))
+		{
+			try
+			{
+				await check.OpenAsync();
+
+				using var integrity = check.CreateCommand();
+				integrity.CommandText = "PRAGMA integrity_check;";
+				var result = (string?)await integrity.ExecuteScalarAsync();
+
+				if (result != "ok")
+					throw new InvalidOperationException("Dosya bozuk görünüyor (integrity check başarısız).");
+
+				using var tableCheck = check.CreateCommand();
+				tableCheck.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'Words';";
+				var hasWords = Convert.ToInt32(await tableCheck.ExecuteScalarAsync()) > 0;
+
+				if (!hasWords)
+					throw new InvalidOperationException("Bu dosya bir Vokabeln yedeği değil ('Words' tablosu bulunamadı).");
+			}
+			catch (SqliteException)
+			{
+				throw new InvalidOperationException("Dosya geçerli bir SQLite veritabanı değil.");
+			}
+		}
+
+		// 2) Geri yüklemeden önce mevcut verinin güvenlik yedeğini al
+		var backupFolder = Path.Combine(AppContext.BaseDirectory, "Backups");
+		Directory.CreateDirectory(backupFolder);
+		await BackupToAsync(Path.Combine(backupFolder, $"before-restore-{DateTime.Now:yyyyMMdd-HHmmss}.db"));
+
+		// 3) Yüklenen dosyayı çalışan veritabanının üzerine yaz
+		var live = (SqliteConnection)dbContext.Database.GetDbConnection();
+		await dbContext.Database.OpenConnectionAsync();
+
+		try
+		{
+			using var source = new SqliteConnection(uploadedConnectionString);
+			await source.OpenAsync();
+			source.BackupDatabase(live);
+		}
+		finally
+		{
+			await dbContext.Database.CloseConnectionAsync();
+		}
+
+		// Bellekteki eski varlıkları at
+		dbContext.ChangeTracker.Clear();
 	}
 }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -144,6 +145,70 @@ namespace Vokabeln.Controllers
 
 			var result = await wordService.ImportAsync(words, mode);
 			return View("ImportResult", result);
+		}
+
+		[HttpGet]
+		public async Task<IActionResult> Backup()
+		{
+			var path = await wordService.CreateBackupAsync();
+
+			// DeleteOnClose: indirme bitince geçici dosya otomatik silinir
+			var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read,
+				bufferSize: 4096, FileOptions.DeleteOnClose);
+
+			var fileName = $"vokabeln-backup-{DateTime.Now:yyyyMMdd-HHmm}.db";
+			return File(stream, "application/vnd.sqlite3", fileName);
+		}
+
+		[HttpGet]
+		public IActionResult Restore() => View();
+
+		[HttpPost]
+		[ValidateAntiForgeryToken]
+		public async Task<IActionResult> Restore(IFormFile? file, bool confirm)
+		{
+			if (!confirm)
+			{
+				ModelState.AddModelError("", "Devam etmek için onay kutusunu işaretleyin.");
+				return View();
+			}
+
+			if (file is null || file.Length == 0)
+			{
+				ModelState.AddModelError("", "Lütfen bir yedek dosyası (.db) seçin.");
+				return View();
+			}
+
+			var tempPath = Path.Combine(Path.GetTempPath(), $"restore-{Guid.NewGuid():N}.db");
+
+			try
+			{
+				await using (var fs = new FileStream(tempPath, FileMode.Create))
+				{
+					await file.CopyToAsync(fs);
+				}
+
+				await wordService.RestoreAsync(tempPath);
+
+				TempData["Message"] = "Yedek başarıyla geri yüklendi.";
+				return RedirectToAction(nameof(Index));
+			}
+			catch (InvalidOperationException ex)
+			{
+				ModelState.AddModelError("", ex.Message);
+				return View();
+			}
+			catch (SqliteException ex)
+			{
+				ModelState.AddModelError("", $"Geri yükleme başarısız: {ex.Message}");
+				return View();
+			}
+			finally
+			{
+				// Geçici dosyayı sil
+				if (System.IO.File.Exists(tempPath))
+					System.IO.File.Delete(tempPath);
+			}
 		}
 	}
 }

@@ -13,4 +13,6 @@ public interface IWordService
 	Task DeleteAsync(int id);
 	Task<List<WordEntity>> GetAllAsync();
 	Task<ImportResult> ImportAsync(IEnumerable<WordEntity> words, ImportMode mode);
+	Task<string> CreateBackupAsync();
+	Task RestoreAsync(string uploadedDbPath);
 }
