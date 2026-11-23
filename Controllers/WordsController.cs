@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
@@ -13,7 +14,8 @@ using Vokabeln.ViewModels;
 
 namespace Vokabeln.Controllers
 {
-	public class WordsController(AppDbContext dbContext, IWordService wordService) : Controller
+    [Authorize]
+	public class WordsController(IWordService wordService) : Controller
 	{
         public async Task<IActionResult> Index(int page = 1, int pageSize = 10)
         {

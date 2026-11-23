@@ -47,7 +47,6 @@ public class AppDbContext : DbContext
         // TODO To enable debugging in Migrations, uncomment following:
         // if (System.Diagnostics.Debugger.IsAttached == false) System.Diagnostics.Debugger.Launch(); 
 
-        modelBuilder.UseCollation("latin5_turkish_ci");
         modelBuilder.ApplyConfigurationsFromAssembly(System.Reflection.Assembly.GetExecutingAssembly());
 
 

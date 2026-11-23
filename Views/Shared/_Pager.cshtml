@@ -15,7 +15,7 @@
             <label for="pageSize" class="col-form-label">Sayfa başına</label>
             <select id="pageSize" name="pageSize" class="form-select form-select-sm w-auto"
                     onchange="event.target.form.submit()">
-                @foreach (var size in new[] { 10, 20, 50, 100 })
+                @foreach (var size in new[] { 10, 20, 50 })
                 {
                     <option value="@size" selected="@(Model.PageSize == size)">@size</option>
                 }

@@ -17,7 +17,7 @@ using Vokabeln.AppLib.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 
-builder.WebHost.UseUrls("http://localhost:5077");
+builder.WebHost.UseUrls("https://localhost:5077");
 
 
 /// 
