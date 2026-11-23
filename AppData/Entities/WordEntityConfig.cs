@@ -11,8 +11,6 @@ public class WordConfig : IEntityTypeConfiguration<WordEntity>
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Word).UseCollation("NOCASE");
-        
-        builder.Property(x => x.WordType).UseCollation("NOCASE");
 
         builder.HasIndex(p => new { p.Word, p.WordType }).IsUnique();
 
