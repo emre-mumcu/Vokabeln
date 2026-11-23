@@ -20,6 +20,8 @@ public class AppDbContext : DbContext
 
 
     public DbSet<WordEntity> Words => Set<WordEntity>();
+    public DbSet<GameEntity> Games => Set<GameEntity>();
+    public DbSet<GameAnswerEntity> GameAnswers => Set<GameAnswerEntity>();
 
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

@@ -1,0 +1,7 @@
+@using Vokabeln.ViewModels
+@model WordPlayState
+
+@* Oyun durumu bir sonraki isteğe gizli alanlarla taşınır *@
+<input type="hidden" name="State.GameId" value="@Model.GameId" />
+<input type="hidden" name="State.WordIds" value="@Model.WordIds" />
+<input type="hidden" name="State.Index" value="@Model.Index" />

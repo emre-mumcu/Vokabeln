@@ -34,3 +34,41 @@
 })();
 
 // Theme
+
+// Confirm
+// data-confirm="..." taşıyan submit butonları, formu göndermeden önce onay ister.
+// Örnek: <button type="submit" data-confirm="Silmek istediğinize emin misiniz?">Sil</button>
+
+(function () {
+    document.addEventListener("click", function (e) {
+        const btn = e.target.closest("[data-confirm]");
+        if (!btn || !btn.form) return;
+
+        e.preventDefault();
+
+        const message = btn.dataset.confirm;
+
+        // requestSubmit(btn): butonun formaction/name değerleri korunur, click tekrar tetiklenmez
+        const submit = function () { btn.form.requestSubmit(btn); };
+
+        // SweetAlert yüklenemediyse (ör. CDN'e erişim yok) tarayıcının onay penceresi kullanılır
+        if (typeof Swal === "undefined") {
+            if (window.confirm(message)) submit();
+            return;
+        }
+
+        Swal.fire({
+            icon: "warning",
+            title: "Emin misiniz?",
+            text: message,
+            showCancelButton: true,
+            confirmButtonText: "Evet",
+            cancelButtonText: "Vazgeç",
+            focusCancel: true
+        }).then(function (result) {
+            if (result.isConfirmed) submit();
+        });
+    });
+})();
+
+// Confirm

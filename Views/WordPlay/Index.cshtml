@@ -1,0 +1,69 @@
+@using Vokabeln.AppData.Enums
+@using Vokabeln.ViewModels
+@model WordPlaySetupViewModel
+
+<div class="container mt-4">
+
+    <div class="card shadow-sm">
+        <div class="card-header"><h4 class="mb-0">Word Play</h4></div>
+        <div class="card-body">
+
+            <p class="fg-secondary">Kelimenin anlamını şıklar arasından bul. Yalnızca anlamı girilmiş kelimeler sorulur.</p>
+
+            <form asp-action="Start" method="post">
+
+                <div class="mb-3">
+                    <label asp-for="QuestionCount" class="form-label">Soru sayısı</label>
+                    <select asp-for="QuestionCount" class="form-control">
+                        @foreach (var count in new[] { 5, 10, 20, 30, 50 })
+                        {
+                            <option value="@count">@count</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="SelectedType" class="form-label">Kelime türü</label>
+                    <select asp-for="SelectedType" id="typeSelect" class="form-control"
+                            asp-items="Html.GetEnumSelectList<WordType>()">
+                        <option value="">Tümü</option>
+                    </select>
+                </div>
+
+                <div class="mb-3" id="articleBox" @(Model.SelectedType == WordType.Noun ? "" : "hidden")>
+                    <label class="form-label d-block">Artikel</label>
+
+                    @foreach (var article in Enum.GetValues<ArticleFilter>())
+                    {
+                        <div class="form-check">
+                            <input asp-for="Article" type="radio" value="@article" id="article@(article)" class="form-check-input" />
+                            <label for="article@(article)" class="form-check-label">
+                                @(article == ArticleFilter.All ? "Tüm isimler" : article.ToString().ToLowerInvariant())
+                            </label>
+                        </div>
+                    }
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-play-fill"></i> Başla</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const select = document.getElementById("typeSelect");
+            const box = document.getElementById("articleBox");
+            const nounValue = "@((int)WordType.Noun)";
+
+            select.addEventListener("change", function () {
+                box.hidden = select.value !== nounValue;
+            });
+        })();
+    </script>
+}

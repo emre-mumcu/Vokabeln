@@ -42,7 +42,7 @@
                                 <td>@item.WordType</td>
                                 <td>@item.Meaning</td>
                                 <td>
-                                    <a asp-action="Word" asp-route-id="@item.Id" class="btn-text theme-accent"><i class="bi bi-pencil-square"></i> Edit</a>
+                                    <a asp-action="Word" asp-route-id="@item.Id" asp-route-page="@Model.Page" asp-route-pageSize="@Model.PageSize" class="btn-text theme-accent"><i class="bi bi-pencil-square"></i> Edit</a>
                                     <form asp-action="Delete" asp-route-id="@item.Id" method="post" class="d-inline">
                                         <button type="submit" class="btn-text theme-danger"
                                                 data-confirm="Bu kelimeyi silmek istediğinize emin misiniz?">

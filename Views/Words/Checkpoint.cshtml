@@ -1,0 +1,54 @@
+@using Vokabeln.ViewModels
+@model DbFilesViewModel
+
+@functions {
+    static string Bytes(long b)
+    {
+        string[] units = { "B", "KB", "MB", "GB" };
+        double v = b;
+        var i = 0;
+        while (v >= 1024 && i < units.Length - 1) { v /= 1024; i++; }
+        return $"{v:0.##} {units[i]}";
+    }
+
+    static string State(DbFileState file) => file.Exists ? Bytes(file.Size) : "yok";
+}
+
+<div class="container mt-4">
+
+    <div class="card shadow-sm">
+        <div class="card-header"><h4 class="mb-0">Close Database</h4></div>
+        <div class="card-body">
+
+            <div class="alert theme-info">
+                <p class="mb-2">
+                    Bu işlem <code>-wal</code> dosyasındaki tüm veriyi ana <code>.db</code> dosyasına aktarır ve açık bağlantıları kapatır.
+                    Son bağlantı kapanınca SQLite <code>-wal</code> ve <code>-shm</code> dosyalarını siler.
+                    Böylece <code>.db</code> dosyası tek başına kopyalanabilir.
+                </p>
+                <p class="mb-0">
+                    Uygulama veritabanını bir sonraki işlemde yeniden açar; bu dosyaların tekrar oluşması normaldir.
+                    Veritabanı başka bir programda (ör. DB Browser for SQLite) açıksa dosyalar silinmez.
+                </p>
+            </div>
+
+            <table class="table mb-4">
+                <tbody>
+                    <tr><th>Dosya yolu</th><td><code>@Model.Database.Path</code></td></tr>
+                    <tr><th>.db</th><td>@State(Model.Database)</td></tr>
+                    <tr><th>-wal</th><td>@State(Model.Wal)</td></tr>
+                    <tr><th>-shm</th><td>@State(Model.Shm)</td></tr>
+                </tbody>
+            </table>
+
+            <form asp-action="Checkpoint" method="post">
+                <div class="d-flex justify-content-end gap-2">
+                    <a asp-action="Checkpoint" class="btn btn-secondary"><i class="bi bi-arrow-clockwise"></i> Yenile</a>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-database-check"></i> Veritabanını kapat</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+</div>

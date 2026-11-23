@@ -1,0 +1,41 @@
+@using Vokabeln.ViewModels
+@model WordPlayResultViewModel
+
+@{
+    var resultClass = Model.Percent >= 80 ? "theme-success"
+                    : Model.Percent >= 50 ? "theme-warning"
+                    : "theme-danger";
+}
+
+<div class="container mt-4">
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header"><h4 class="mb-0">Sonuç</h4></div>
+        <div class="card-body">
+
+            @if (Model.Answered == 0)
+            {
+                <div class="alert theme-secondary">Hiç soru cevaplanmadı, oyun istatistiklere eklenmedi.</div>
+            }
+            else
+            {
+                <div class="alert @resultClass">
+                    <strong>@Model.Score / @Model.Answered</strong> doğru (%@Model.Percent)
+                    @if (Model.Answered < Model.QuestionCount)
+                    {
+                        <span class="fg-secondary">· @Model.QuestionCount sorudan @Model.Answered tanesi cevaplandı</span>
+                    }
+                </div>
+            }
+
+            <div class="d-flex justify-content-end gap-2">
+                <a asp-controller="Words" asp-action="Index" class="btn btn-secondary">Kelime listesi</a>
+                <a asp-action="Index" class="btn btn-primary">Yeni oyun</a>
+            </div>
+
+        </div>
+    </div>
+
+    <partial name="_GameStats" model="Model.Stats" />
+
+</div>

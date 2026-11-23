@@ -17,6 +17,8 @@
                 <div asp-validation-summary="ModelOnly" class="fg-danger mb-3"></div>
 
                 <input type="hidden" asp-for="Id" />
+                <input type="hidden" name="page" value="@ViewData["Page"]" />
+                <input type="hidden" name="pageSize" value="@ViewData["PageSize"]" />
 
                 <div class="mb-3 row">
                     <label asp-for="Word" class="sm:col-2 col-form-label"></label>
@@ -58,7 +60,7 @@
                 </div>
 
                 <div class="d-flex justify-content-end gap-2">
-                    <a asp-action="Index" class="btn btn-secondary">İptal</a>
+                    <a asp-action="Index" asp-route-page="@ViewData["Page"]" asp-route-pageSize="@ViewData["PageSize"]" class="btn btn-secondary">İptal</a>
                     <button type="submit" class="btn btn-primary">Save</button>
                 </div>
     
@@ -94,14 +96,14 @@
                     if (nounOption) typeSelect.value = nounOption.value;
                     pluralRow.classList.remove("d-none");
                 } else {
-                    typeSelect.value = "";          // -- Seçiniz --
+                     if (nounOption && typeSelect.value === nounOption.value) typeSelect.value = "";
                     pluralRow.classList.add("d-none");
                     pluralInput.value = "";         // gizlenen alanda eski değer kalmasın
                 }
             }
 
             wordInput.addEventListener("input", updateByArticle);
-            // updateByArticle(); // sayfa açılışında (güncelleme modunda) da çalışsın
+            updateByArticle(); // sayfa açılışında (güncelleme modunda) da çalışsın
         })();
     </script>
 }

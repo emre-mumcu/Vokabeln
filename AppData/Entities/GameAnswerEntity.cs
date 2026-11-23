@@ -1,0 +1,19 @@
+namespace Vokabeln.AppData.Entities;
+
+public class GameAnswerEntity
+{
+    public int Id { get; set; }
+
+    public int GameId { get; set; }
+    public GameEntity? Game { get; set; }
+
+    // Sorulan kelime
+    public int WordId { get; set; }
+    public WordEntity? Word { get; set; }
+
+    // Seçilen şıkkın ait olduğu kelime (o kelime sonradan silinebilir, bu yüzden ilişki yok)
+    public int SelectedWordId { get; set; }
+
+    public bool IsCorrect { get; set; }
+    public DateTime AnsweredAt { get; set; }
+}

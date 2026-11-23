@@ -26,8 +26,12 @@ namespace Vokabeln.Controllers
 		}
 
         [HttpGet]
-        public async Task<IActionResult> Word(int id = 0)
+        public async Task<IActionResult> Word(int id = 0, int page = 1, int pageSize = 10)
         {
+            // Kaydet/İptal sonrası listenin aynı sayfasına dönmek için
+            ViewData["Page"] = page;
+            ViewData["PageSize"] = pageSize;
+
             if (id == 0)
                 return View(new WordEntity());
 
@@ -41,20 +45,37 @@ namespace Vokabeln.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Word(WordEntity we)
+        public async Task<IActionResult> Word(WordEntity we, int page = 1, int pageSize = 10)
         {
+            // Form hatayla tekrar gösterilirse sayfa bilgisi kaybolmasın
+            ViewData["Page"] = page;
+            ViewData["PageSize"] = pageSize;
+
+            if (!ModelState.IsValid) return View(we);
+
+            var isEdit = we.Id > 0;
+
             try
             {
-                if (!ModelState.IsValid) return View(we);
                 await wordService.SaveAsync(we);
-                return RedirectToAction(nameof(Word));
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is SqliteException { SqliteErrorCode: 19 })
+            {
+                // 19 = SQLITE_CONSTRAINT: (Word, WordType) unique index'i
+                TempData["ErrorMessage"] = $"\"{we.Word}\" bu kelime türüyle zaten kayıtlı.";
+                return View(we);
             }
             catch (Exception ex)
             {
-                // TempData["SuccessMessage"] = "Kelime kaydedildi.";
-                TempData["ErrorMessage"] = $"{ex.Message}{ex?.InnerException?.Message}";
-                return RedirectToAction(nameof(Word));
-			}
+                // Form, girilen değerlerle tekrar gösterilir; değişiklikler kaybolmaz
+                TempData["ErrorMessage"] = ex.InnerException is null ? ex.Message : $"{ex.Message} {ex.InnerException.Message}";
+                return View(we);
+            }
+
+            TempData["SuccessMessage"] = "Kelime kaydedildi.";
+
+            // Düzenlemeden sonra listeye, yeni kayıttan sonra bir sonraki kelime için boş forma dönülür
+            return isEdit ? RedirectToAction(nameof(Index), new { page, pageSize }) : RedirectToAction(nameof(Word));
         }
 
 		[HttpPost]
@@ -74,7 +95,7 @@ namespace Vokabeln.Controllers
 			catch (Exception ex)
 			{
 				// TempData["SuccessMessage"] = "Kelime kaydedildi.";
-				TempData["ErrorMessage"] = $"{ex.Message}{ex.InnerException.Message}";
+				TempData["ErrorMessage"] = $"{ex.Message}{ex?.InnerException?.Message}";
 				return RedirectToAction(nameof(Index));
 			}
 		}
@@ -230,6 +251,27 @@ namespace Vokabeln.Controllers
 
 			TempData["SuccessMessage"] = $"{count} güvenlik yedeği silindi.";
 			return RedirectToAction(nameof(Stats));
+		}
+
+		[HttpGet]
+		public IActionResult Checkpoint() => View(wordService.GetDbFiles());
+
+		[HttpPost]
+		[ActionName("Checkpoint")] // GET ile aynı imza olduğu için C# adı farklı, URL aynı
+		[ValidateAntiForgeryToken]
+		public async Task<IActionResult> CheckpointPost()
+		{
+			var result = await wordService.CheckpointAsync();
+
+			if (result.Busy)
+				TempData["ErrorMessage"] = "Veritabanı meşgul, aktarım tamamlanamadı. Biraz sonra tekrar deneyin.";
+			else if (result.WalPages < 0)
+				TempData["SuccessMessage"] = "Veritabanı WAL modunda değil, aktarılacak veri yok. Bağlantılar kapatıldı.";
+			else
+				// TRUNCATE sonrası sayfa sayıları 0 döner, bu yüzden mesajda sayı verilmez
+				TempData["SuccessMessage"] = "Tüm veri veritabanı dosyasına aktarıldı, bağlantılar kapatıldı.";
+
+			return RedirectToAction(nameof(Checkpoint));
 		}
 
 		[HttpGet]

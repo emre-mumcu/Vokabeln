@@ -168,6 +168,10 @@ public class WordService(AppDbContext dbContext) : IWordService
 
     public async Task<string> CreateBackupAsync()
     {
+        // Önce WAL'daki veri ana dosyaya aktarılır ve bağlantılar kapatılır.
+        // Meşgul olsa bile yedek alınır: BackupDatabase WAL'daki veriyi de kopyalar.
+        await CheckpointAsync();
+
         var tempPath = Path.Combine(Path.GetTempPath(), $"vokabeln-{Guid.NewGuid():N}.db");
         await BackupToAsync(tempPath);
         return tempPath;
@@ -241,12 +245,15 @@ public class WordService(AppDbContext dbContext) : IWordService
             }
         }
 
-        // 2) Geri yüklemeden önce mevcut verinin güvenlik yedeğini al
+        // 2) Veritabanını kapat: WAL'daki veri ana dosyaya aktarılır, havuzdaki eski bağlantılar kapatılır
+        await CheckpointAsync();
+
+        // 3) Geri yüklemeden önce mevcut verinin güvenlik yedeğini al
         var backupFolder = Path.Combine(AppContext.BaseDirectory, "Backups");
         Directory.CreateDirectory(backupFolder);
         await BackupToAsync(Path.Combine(backupFolder, $"before-restore-{DateTime.Now:yyyyMMdd-HHmmss}.db"));
 
-        // 3) Yüklenen dosyayı çalışan veritabanının üzerine yaz
+        // 4) Yüklenen dosyayı çalışan veritabanının üzerine yaz
         var live = (SqliteConnection)dbContext.Database.GetDbConnection();
         await dbContext.Database.OpenConnectionAsync();
 
@@ -428,6 +435,57 @@ public class WordService(AppDbContext dbContext) : IWordService
         }
 
         return Task.FromResult(deleted);
+    }
+
+    public DbFilesViewModel GetDbFiles()
+    {
+        // Yol bağlantı açılmadan, bağlantı cümlesinden bulunur; açılsaydı -wal/-shm yeniden oluşurdu.
+        // SQLite göreli yolu çalışma dizinine göre çözer, GetFullPath de aynısını yapar.
+        var builder = new SqliteConnectionStringBuilder(dbContext.Database.GetConnectionString());
+        var path = Path.GetFullPath(builder.DataSource);
+
+        return new DbFilesViewModel
+        {
+            Database = FileState(path),
+            Wal = FileState(path + "-wal"),
+            Shm = FileState(path + "-shm")
+        };
+    }
+
+    private static DbFileState FileState(string path)
+        => new(path, File.Exists(path), FileSize(path));
+
+    public async Task<CheckpointResult> CheckpointAsync()
+    {
+        var conn = (SqliteConnection)dbContext.Database.GetDbConnection();
+        await dbContext.Database.OpenConnectionAsync();
+
+        CheckpointResult result;
+
+        try
+        {
+            // TRUNCATE: WAL'daki tüm sayfalar ana dosyaya yazılır ve -wal dosyası sıfırlanır
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            await reader.ReadAsync();
+
+            result = new CheckpointResult(
+                Busy: reader.GetInt32(0) != 0,
+                WalPages: reader.GetInt32(1),
+                CheckpointedPages: reader.GetInt32(2));
+        }
+        finally
+        {
+            await dbContext.Database.CloseConnectionAsync();
+        }
+
+        // Havuzda bekleyen bağlantılar kapatılır. Son bağlantı kapanınca SQLite -wal ve -shm dosyalarını siler.
+        // Uygulama veritabanını bir sonraki istekte yeniden açar; dosyalar o zaman tekrar oluşur.
+        SqliteConnection.ClearAllPools();
+
+        return result;
     }
 
     public async Task<List<WordEntity>> GetForPrintAsync(WordType? type, bool der, bool die, bool das)

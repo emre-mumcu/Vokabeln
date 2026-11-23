@@ -1,0 +1,28 @@
+@using Vokabeln.ViewModels
+@model GameStatsViewModel
+
+<div class="container mt-4">
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header"><h4 class="mb-0">Yönetim</h4></div>
+        <div class="card-body">
+
+            <h5>Oyun istatistikleri</h5>
+            <p class="fg-secondary">
+                Sıfırlama, tüm oyun kayıtlarını ve verilen cevapları kalıcı olarak siler. Kelimeler etkilenmez.
+            </p>
+
+            <form asp-action="ResetGameStats" method="post">
+                <button type="submit" class="btn btn-danger"
+                        data-confirm="Tüm oyun istatistikleri kalıcı olarak silinecek. Devam edilsin mi?"
+                        disabled="@(Model.GameCount == 0 && Model.AnswerCount == 0)">
+                    <i class="bi bi-arrow-counterclockwise"></i> İstatistikleri sıfırla
+                </button>
+            </form>
+
+        </div>
+    </div>
+
+    <partial name="_GameStats" model="Model" />
+
+</div>

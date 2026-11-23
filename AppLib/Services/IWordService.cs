@@ -17,6 +17,8 @@ public interface IWordService
 	Task RestoreAsync(string uploadedDbPath);
 	Task<DbStatsViewModel> GetStatsAsync();
 	Task<int> DeleteSafetyBackupsAsync();
+	DbFilesViewModel GetDbFiles();
+	Task<CheckpointResult> CheckpointAsync();
 	Task<List<WordEntity>> GetForPrintAsync(WordType? type, bool der, bool die, bool das);
 	Task<List<TableStat>> GetTablesAsync();
 	Task<TableDetail?> GetTableDetailAsync(string table);

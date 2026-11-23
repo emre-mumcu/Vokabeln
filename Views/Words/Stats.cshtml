@@ -118,9 +118,9 @@
 
             @if (Model.BackupCount > 0)
             {
-                <form asp-action="DeleteSafetyBackups" method="post"
-                      onsubmit="return confirm('Tüm güvenlik yedekleri kalıcı olarak silinecek. Devam edilsin mi?');">
-                    <button type="submit" class="btn btn-link fg-danger p-0">Yedekleri sil</button>
+                <form asp-action="DeleteSafetyBackups" method="post">
+                    <button type="submit" class="btn btn-link fg-danger p-0"
+                            data-confirm="Tüm güvenlik yedekleri kalıcı olarak silinecek. Devam edilsin mi?">Yedekleri sil</button>
                 </form>
             }
         </div>

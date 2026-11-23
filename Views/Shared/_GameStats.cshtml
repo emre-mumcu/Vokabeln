@@ -1,0 +1,84 @@
+@using Vokabeln.ViewModels
+@model GameStatsViewModel
+
+@* Oyun istatistikleri: WordPlay/Result ve Admin/Index sayfalarında kullanılır *@
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header"><h4 class="mb-0">Genel istatistikler</h4></div>
+    <div class="card-body">
+        @if (Model.GameCount == 0 && Model.AnswerCount == 0)
+        {
+            <p class="mb-0 fg-secondary">Henüz oynanmış oyun yok.</p>
+        }
+        else
+        {
+            <table class="table mb-0">
+                <tbody>
+                    <tr><th>Bitirilen oyun</th><td>@Model.GameCount</td></tr>
+                    <tr><th>Cevaplanan soru</th><td>@Model.AnswerCount</td></tr>
+                    <tr><th>Doğru cevap</th><td>@Model.CorrectCount (%@Model.AccuracyPercent)</td></tr>
+                    <tr><th>En iyi oyun</th><td>%@Model.BestPercent</td></tr>
+                    <tr><th>Son oyun</th><td>@(Model.LastPlayed?.ToString("dd.MM.yyyy HH:mm") ?? "-")</td></tr>
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@if (Model.RecentGames.Count > 0)
+{
+    <div class="card shadow-sm mb-4">
+        <div class="card-header"><h4 class="mb-0">Son oyunlar</h4></div>
+        <div class="card-body">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Kelime türü</th>
+                        <th class="text-end">Doğru</th>
+                        <th class="text-end">Oran</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var game in Model.RecentGames)
+                    {
+                        <tr>
+                            <td>@game.FinishedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                            <td>@game.Filter</td>
+                            <td class="text-end">@game.Correct / @game.Answered</td>
+                            <td class="text-end">%@game.Percent</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (Model.MostMissed.Count > 0)
+{
+    <div class="card shadow-sm mb-4">
+        <div class="card-header"><h4 class="mb-0">En çok yanlış yapılan kelimeler</h4></div>
+        <div class="card-body">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Kelime</th>
+                        <th class="text-end">Yanlış</th>
+                        <th class="text-end">Doğru</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var word in Model.MostMissed)
+                    {
+                        <tr>
+                            <td>@word.Word</td>
+                            <td class="text-end">@word.Wrong</td>
+                            <td class="text-end">@word.Correct</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
