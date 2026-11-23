@@ -50,7 +50,7 @@ namespace Vokabeln.Controllers
             catch (Exception ex)
             {
                 // TempData["SuccessMessage"] = "Kelime kaydedildi.";
-                TempData["ErrorMessage"] = $"{ex.Message}{ex.InnerException.Message}";
+                TempData["ErrorMessage"] = $"{ex.Message}{ex?.InnerException?.Message}";
                 return RedirectToAction(nameof(Word));
 			}
         }
@@ -192,7 +192,7 @@ namespace Vokabeln.Controllers
 
 				await wordService.RestoreAsync(tempPath);
 
-				TempData["Message"] = "Yedek başarıyla geri yüklendi.";
+				TempData["SuccessMessage"] = "Yedek başarıyla geri yüklendi.";
 				return RedirectToAction(nameof(Index));
 			}
 			catch (InvalidOperationException ex)
