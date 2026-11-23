@@ -352,7 +352,7 @@ public class WordService(AppDbContext dbContext) : IWordService
             .FirstOrDefaultAsync();
 
         var duplicateGroups = await words
-            .GroupBy(x => x.Word.ToLower())
+            .GroupBy(x => new { Word = x.Word.ToLower(), x.WordType })
             .Where(g => g.Count() > 1)
             .CountAsync();
 
