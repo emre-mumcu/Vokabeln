@@ -16,9 +16,17 @@ namespace Vokabeln.Controllers
             _cookieOptions = cookieOptions;
         }
 
+        [HttpGet]
+        public IActionResult Login(string? returnUrl = null)
+        {
+            ViewData["ReturnUrl"] = returnUrl;
+            return View();
+        }
+
         [HttpPost]
+        [ActionName("Login")] 
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Login()
+        public async Task<IActionResult> LoginPost(string? returnUrl)
         {
             var opts = _cookieOptions.Get(CookieAuthenticationDefaults.AuthenticationScheme);
 
@@ -42,6 +50,10 @@ namespace Vokabeln.Controllers
             {
                 IsPersistent = false,
             });
+
+            // Sadece site içi adrese dön (open redirect'i önler)
+            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+                return LocalRedirect(returnUrl);
 
             return RedirectToAction("Index", "Home");
         }

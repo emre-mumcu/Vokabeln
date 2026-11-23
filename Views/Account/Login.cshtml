@@ -1,0 +1,29 @@
+@{
+    Layout = null;
+}
+
+<!doctype html>
+<html lang="tr">
+
+<head>
+    <meta charset="utf-8">
+    <title>Giriş yapılıyor...</title>
+</head>
+
+<body>
+
+    <form asp-controller="Account" asp-action="Login" method="post" id="loginForm">
+        <input type="hidden" name="returnUrl" value="@ViewData["ReturnUrl"]" />
+
+        <noscript>
+            <button type="submit">Giriş yap</button>
+        </noscript>
+    </form>
+
+    <script>
+        document.getElementById("loginForm").submit();
+    </script>
+
+</body>
+
+</html>
