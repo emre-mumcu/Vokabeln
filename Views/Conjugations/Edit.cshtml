@@ -25,8 +25,15 @@
 
     <div class="card shadow-sm">
 
-        <div class="card-header">
+        <div class="card-header d-flex justify-content-between align-items-center gap-2">
             <h4 class="mb-0">@Model.Tense.GetDescription() · <span class="fw-bold">@Model.Word</span></h4>
+
+            @* Bu zamanın 6 formunu yerel Wiktionary kaynağından (wiktionary-de.json) doldurur *@
+            <button type="button" id="wiktionaryButton" class="btn-outline theme-secondary text-nowrap"
+                    data-wiktionary-url="@Url.Action("Lookup", "Wiktionary")"
+                    data-word="@Model.Word" data-tense="@Model.Tense" data-type="@((int)WordType.Verb)">
+                <i class="bi bi-cloud-download"></i> Wiktionary'den getir
+            </button>
         </div>
 
         <div class="card-body">
@@ -64,3 +71,41 @@
     </div>
 
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const button = document.getElementById("wiktionaryButton");
+            const inputs = Array.from({ length: @ConjugationBase.PersonLabels.Length }, function (_, i) { return document.getElementById("form" + i); });
+
+            button.addEventListener("click", async function () {
+                const entry = await Wiktionary.find(button, button.dataset.word, button.dataset.type);
+                if (!entry) return;
+
+                const forms = entry.conjugations[button.dataset.tense];
+                if (!forms || forms.every(function (f) { return !f; })) {
+                    Swal.fire({ icon: "info", text: "Wiktionary kaynağında \"" + entry.word + "\" için bu zamanın çekimi yok." });
+                    return;
+                }
+
+                const labels = @Json.Serialize(ConjugationBase.PersonLabels);
+                const conflicts = inputs
+                    .map(function (input, i) { return forms[i] && input.value.trim() !== "" && input.value.trim() !== forms[i] ? labels[i] : null; })
+                    .filter(function (x) { return x; });
+
+                const mode = await Wiktionary.askOverwrite(conflicts);
+                if (!mode) return;
+
+                const filled = [];
+                inputs.forEach(function (input, i) {
+                    if (!forms[i] || input.value.trim() === forms[i]) return;
+                    if (mode === "empty" && input.value.trim() !== "") return;
+                    input.value = forms[i];
+                    filled.push(labels[i]);
+                });
+
+                Wiktionary.summary(entry, filled, false);
+            });
+        })();
+    </script>
+}

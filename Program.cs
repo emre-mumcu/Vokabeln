@@ -69,6 +69,9 @@ builder.Services.AddScoped<IConjugationService, ConjugationService>();
 builder.Services.AddScoped<IArticlePlayService, ArticlePlayService>();
 builder.Services.AddScoped<IConjugationPlayService, ConjugationPlayService>();
 
+// Singleton: Wiktionary kaynak dosyasının indeksi uygulama boyunca bellekte tutulur (ilk aramada kurulur)
+builder.Services.AddSingleton<IWiktionaryService, WiktionaryService>();
+
 ///
 /// Bu noktadan sonra servis kaydı biter (artık builder.Services'e ekleme yapılmaz), 
 /// app nesnesi üzerinden middleware pipeline tanımlanır.

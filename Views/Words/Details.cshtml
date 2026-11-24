@@ -98,7 +98,39 @@
 
     @if (isVerb)
     {
-        <h4 class="mb-3">Konjugation</h4>
+        var hasAny = Model.Conjugations.Values.Any(c => c.HasAnyForm);
+        var isComplete = Enum.GetValues<Tense>().All(t => Model.Conjugations.GetValueOrDefault(t)?.HasAnyForm == true);
+
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <h4 class="mb-0">Konjugation</h4>
+
+            @* Beş zamanın çekimi yerel Wiktionary kaynağından (wiktionary-de.json) kaydedilir.
+               Girilmiş zaman varsa: "Eksikleri getir" yalnızca boş zamanları ekler, "Tümünü yenile" üzerine yazar. *@
+            <div class="d-flex gap-2">
+                @if (!isComplete)
+                {
+                    <form asp-controller="Conjugations" asp-action="ImportAll" asp-route-wordId="@word.Id" method="post">
+                        <input type="hidden" name="overwrite" value="false" />
+                        <input type="hidden" name="returnUrl" value="@detailsUrl" />
+                        <button type="submit" class="btn-outline theme-primary">
+                            <i class="bi bi-cloud-download"></i> @(hasAny ? "Eksik çekimleri Wiktionary'den getir" : "Tüm çekimleri Wiktionary'den getir")
+                        </button>
+                    </form>
+                }
+
+                @if (hasAny)
+                {
+                    <form asp-controller="Conjugations" asp-action="ImportAll" asp-route-wordId="@word.Id" method="post">
+                        <input type="hidden" name="overwrite" value="true" />
+                        <input type="hidden" name="returnUrl" value="@detailsUrl" />
+                        <button type="submit" class="btn-outline theme-secondary"
+                                data-confirm="Girilmiş tüm çekimlerin üzerine Wiktionary'deki formlar yazılacak. Emin misiniz?">
+                            <i class="bi bi-arrow-repeat"></i> Tümünü Wiktionary'den yenile
+                        </button>
+                    </form>
+                }
+            </div>
+        </div>
 
         <div class="row g-3 mb-4">
             @foreach (var tense in Enum.GetValues<Tense>())

@@ -217,3 +217,139 @@
 })();
 
 // Quick search
+
+// Wiktionary
+// Kelime ve çekim formlarındaki "Wiktionary'den getir" butonu için ortak yardımcılar.
+// Veri yerel kaynak dosyasından (wiktionary-de.json) /Wiktionary/Lookup ile gelir; formu doldurma işi her sayfanın kendisindedir.
+
+window.Wiktionary = (function () {
+    const hasSwal = function () { return typeof Swal !== "undefined"; };
+
+    function message(icon, text) {
+        if (hasSwal()) return Swal.fire({ icon: icon, text: text });
+        window.alert(text);
+        return Promise.resolve();
+    }
+
+    // Aday satırı: "gehen (das Verb) ← ging: 1. Person ... — gitmek"
+    function label(entry) {
+        let text = entry.word + (entry.wordTypeText ? " (" + entry.wordTypeText + ")" : "");
+        if (entry.via) text += " ← " + entry.via;
+        const hint = entry.meaning || (entry.glosses.length > 0 ? entry.glosses[0] : "");
+        if (hint) text += " — " + hint;
+        return text.length > 160 ? text.substring(0, 157) + "..." : text;
+    }
+
+    // Kelimeyi arar; birden fazla sonuç varsa seçtirir. Seçilen maddeyi (ya da null) döndürür.
+    async function find(button, query, type) {
+        if (!query || !query.trim()) {
+            await message("info", "Önce aranacak kelimeyi yazın.");
+            return null;
+        }
+
+        const url = button.dataset.wiktionaryUrl + "?q=" + encodeURIComponent(query.trim()) +
+            (type !== null && type !== undefined && type !== "" ? "&type=" + encodeURIComponent(type) : "");
+
+        // İlk aramada kaynak dosya indekslenir (birkaç saniye sürebilir)
+        const original = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="bi bi-hourglass-split"></i> Aranıyor...';
+
+        let result;
+        try {
+            const response = await fetch(url, { headers: { "Accept": "application/json" } });
+            if (!response.ok) throw new Error(response.status);
+            result = await response.json();
+        } catch (e) {
+            await message("error", "Wiktionary kaynağı okunamadı.");
+            return null;
+        } finally {
+            button.disabled = false;
+            button.innerHTML = original;
+        }
+
+        if (!result.available || result.entries.length === 0) {
+            await message(result.available ? "info" : "error", result.message || "Bulunamadı.");
+            return null;
+        }
+
+        if (result.entries.length === 1 || !hasSwal()) return result.entries[0];
+
+        const options = {};
+        result.entries.forEach(function (entry, i) { options[i] = label(entry); });
+
+        const choice = await Swal.fire({
+            title: "Hangisi?",
+            text: result.entries.length + " sonuç bulundu.",
+            input: "radio",
+            inputOptions: options,
+            inputValue: "0",
+            showCancelButton: true,
+            confirmButtonText: "Getir",
+            cancelButtonText: "Vazgeç",
+            customClass: { input: "text-start" }
+        });
+
+        return choice.isConfirmed ? result.entries[parseInt(choice.value, 10)] : null;
+    }
+
+    // Dolu alanlar farklı bir değerle değişecekse sorar: "all" (üzerine yaz), "empty" (yalnızca boşlar) ya da null (vazgeç)
+    async function askOverwrite(conflicts) {
+        if (conflicts.length === 0) return "all";
+
+        if (!hasSwal()) return window.confirm("Dolu alanların üzerine yazılsın mı? (" + conflicts.join(", ") + ")") ? "all" : "empty";
+
+        const result = await Swal.fire({
+            icon: "question",
+            title: "Dolu alanlar var",
+            text: "Şu alanlar zaten dolu: " + conflicts.join(", ") + ". Wiktionary'deki değerler yazılsın mı?",
+            showDenyButton: true,
+            showCancelButton: true,
+            confirmButtonText: "Üzerine yaz",
+            denyButtonText: "Yalnızca boş alanlar",
+            cancelButtonText: "Vazgeç"
+        });
+
+        if (result.isConfirmed) return "all";
+        if (result.isDenied) return "empty";
+        return null;
+    }
+
+    // Doldurulan alanları ve (showHelp false değilse) Türkçe anlam yoksa Almanca açıklama / İngilizce karşılıkları gösterir
+    function summary(entry, filled, showHelp) {
+        const box = document.createElement("div");
+        box.className = "text-start";
+
+        const p = document.createElement("p");
+        p.textContent = filled.length > 0 ? "Doldurulan alanlar: " + filled.join(", ") + "." : "Değişen alan olmadı.";
+        box.appendChild(p);
+
+        if (showHelp !== false && !entry.meaning && (entry.glosses.length > 0 || entry.english.length > 0)) {
+            const note = document.createElement("p");
+            note.className = "fg-secondary mb-1";
+            note.textContent = "Kaynakta Türkçe anlam yok. Yardımcı olsun diye:";
+            box.appendChild(note);
+
+            const list = document.createElement("ul");
+            list.className = "small mb-0";
+            entry.glosses.forEach(function (g) {
+                const li = document.createElement("li");
+                li.textContent = g;
+                list.appendChild(li);
+            });
+            if (entry.english.length > 0) {
+                const li = document.createElement("li");
+                li.textContent = "EN: " + entry.english.join(", ");
+                list.appendChild(li);
+            }
+            box.appendChild(list);
+        }
+
+        if (!hasSwal()) return;
+        Swal.fire({ icon: "success", title: entry.word, html: box });
+    }
+
+    return { find: find, askOverwrite: askOverwrite, summary: summary };
+})();
+
+// Wiktionary

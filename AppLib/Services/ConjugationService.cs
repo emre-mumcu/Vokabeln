@@ -8,7 +8,7 @@ using Vokabeln.ViewModels;
 
 namespace Vokabeln.AppLib.Services;
 
-public class ConjugationService(AppDbContext dbContext) : IConjugationService
+public class ConjugationService(AppDbContext dbContext, IWiktionaryService wiktionaryService) : IConjugationService
 {
     // Her zaman kendi tablosunda; sorgular ortak taban sınıf üzerinden yazılır
     private IQueryable<ConjugationBase> Query(Tense tense) => tense switch
@@ -119,6 +119,76 @@ public class ConjugationService(AppDbContext dbContext) : IConjugationService
             dbContext.Entry(word).Property(x => x.UpdatedAt).IsModified = true;
 
         await dbContext.SaveChangesAsync();
+    }
+
+    // Beş zamanın çekimini yerel Wiktionary kaynağından kaydeder.
+    // overwrite=false: yalnızca girilmemiş zamanlar eklenir. Boş Hilfsverb / Partizip II da kaynaktan tamamlanır.
+    public async Task<ConjugationImportResult> ImportFromWiktionaryAsync(int wordId, bool overwrite)
+    {
+        var word = await dbContext.Words.FirstOrDefaultAsync(x => x.Id == wordId)
+            ?? throw new KeyNotFoundException($"Id: {wordId} NOT found!");
+
+        EnsureVerb(word);
+
+        var lookup = await wiktionaryService.LookupAsync(word.Word, WordType.Verb);
+        if (!lookup.Available)
+            return new() { Error = lookup.Message };
+
+        // Aynı yazılışlı birden fazla fiil olabilir: önce tam eşleşen ve çekimi olan madde
+        var entry = lookup.Entries
+            .Where(e => e.WordType == WordType.Verb && e.Conjugations.Count > 0)
+            .OrderBy(e => e.Lemma == word.Word ? 0 : 1)
+            .ThenBy(e => e.Via is null ? 0 : 1)
+            .FirstOrDefault();
+
+        if (entry is null)
+            return new() { Error = $"\"{word.Word}\" için Wiktionary kaynağında çekim bulunamadı." };
+
+        var result = new ConjugationImportResult { Source = entry.Word };
+
+        foreach (var tense in Enum.GetValues<Tense>())
+        {
+            if (!entry.Conjugations.TryGetValue(tense.ToString(), out var sourceForms) || sourceForms.All(string.IsNullOrWhiteSpace))
+            {
+                result.Missing.Add(tense);
+                continue;
+            }
+
+            var entity = await Query(tense).FirstOrDefaultAsync(x => x.WordId == word.Id);
+
+            if (entity is not null && entity.HasAnyForm && !overwrite)
+            {
+                result.Skipped.Add(tense);
+                continue;
+            }
+
+            if (entity is null)
+            {
+                entity = Create(tense);
+                entity.WordId = word.Id;
+                dbContext.Add(entity);
+            }
+
+            entity.SetForms(sourceForms.Select(NormalizeForm).ToList());
+            result.Saved.Add(tense);
+        }
+
+        // Kelimenin boş fiil bilgileri de tamamlanır (dolu olanlara dokunulmaz)
+        if (word.Auxiliary is null && entry.Auxiliary is not null)
+            word.Auxiliary = entry.Auxiliary;
+
+        if (string.IsNullOrWhiteSpace(word.PartizipII) && !string.IsNullOrWhiteSpace(entry.PartizipII))
+            word.PartizipII = entry.PartizipII;
+
+        if (!word.IsSeparable && entry.IsSeparable)
+            word.IsSeparable = true;
+
+        if (result.Saved.Count > 0)
+            dbContext.Entry(word).Property(x => x.UpdatedAt).IsModified = true;
+
+        await dbContext.SaveChangesAsync();
+
+        return result;
     }
 
     public Task<List<int>> GetVerbIdsWithAsync(Tense tense)

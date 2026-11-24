@@ -19,8 +19,11 @@
             icon: 'success',
             title: 'Başarılı',
             text: @Json.Serialize(successMessage),
-            timer: 2000,
-            showConfirmButton: false
+            showConfirmButton: false,
+            // Süreyle kapanmaz: mesaja ya da dışına tıklanınca (veya Esc ile) kapanır
+            didOpen: function (popup) {
+                popup.addEventListener('click', function () { Swal.close(); });
+            }
         });
     </script>
 }

@@ -27,7 +27,15 @@
                 <div class="mb-3 row">
                     <label asp-for="Word" class="sm:col-2 col-form-label"></label>
                     <div class="sm:col-10">
-                        <input asp-for="Word" class="form-control" />
+                        <div class="d-flex gap-2">
+                            <input asp-for="Word" class="form-control" />
+                            @* Yerel Wiktionary kaynağından (wiktionary-de.json) alanları doldurur; çekimli hal de aranabilir (ging -> gehen) *@
+                            <button type="button" id="wiktionaryButton" class="btn-outline theme-secondary text-nowrap"
+                                    data-wiktionary-url="@Url.Action("Lookup", "Wiktionary")"
+                                    title="Artikel, tür, çoğul, anlam, örnek ve fiil bilgilerini Wiktionary kaynağından getirir">
+                                <i class="bi bi-cloud-download"></i> Wiktionary'den getir
+                            </button>
+                        </div>
                         <span asp-validation-for="Word" class="fg-danger"></span>
                     </div>
                 </div>
@@ -147,6 +155,69 @@
             typeSelect.addEventListener("change", updateVerbBox);
             wordInput.addEventListener("input", updateByArticle);
             updateByArticle(); // sayfa açılışında (güncelleme modunda) da çalışsın
+
+            // Wiktionary'den getir: seçilen maddeyle formu doldurur.
+            // Dolu bir alan farklı değerle değişecekse önce sorulur (üzerine yaz / yalnızca boş alanlar).
+            const wiktionaryButton = document.getElementById("wiktionaryButton");
+            const meaningInput = document.getElementById("Meaning");
+            const sampleInput = document.getElementById("Sample");
+            const auxiliarySelect = document.getElementById("Auxiliary");
+            const partizipInput = document.getElementById("PartizipII");
+            const separableInput = document.getElementById("IsSeparable");
+
+            wiktionaryButton.addEventListener("click", async function () {
+                const entry = await Wiktionary.find(wiktionaryButton, wordInput.value, typeSelect.value);
+                if (!entry) return;
+
+                const isVerb = entry.wordType === @((int)WordType.Verb);
+                const value = function (v) { return v === null || v === undefined ? "" : String(v); };
+
+                // [alan adı, input, yeni değer] — Kelime her zaman bulunan maddeyle değişir (ging -> gehen)
+                const fields = [
+                    ["Tür", typeSelect, value(entry.wordType)],
+                    ["Çoğul", pluralInput, value(entry.plural)],
+                    ["Anlam", meaningInput, value(entry.meaning)],
+                    ["Örnek", sampleInput, value(entry.sample)]
+                ];
+                if (isVerb) {
+                    fields.push(["Hilfsverb", auxiliarySelect, value(entry.auxiliary)]);
+                    fields.push(["Partizip II", partizipInput, value(entry.partizipII)]);
+                }
+
+                const conflicts = fields
+                    .filter(function (f) { return f[2] !== "" && f[1].value.trim() !== "" && f[1].value.trim() !== f[2]; })
+                    .map(function (f) { return f[0]; });
+
+                const mode = await Wiktionary.askOverwrite(conflicts);
+                if (!mode) return;
+
+                const filled = [];
+
+                if (wordInput.value.trim() !== entry.word) {
+                    wordInput.value = entry.word;
+                    filled.push("Kelime");
+                }
+                updateByArticle(); // artikele göre tür ve çoğul satırı ayarlanır
+
+                fields.forEach(function (f) {
+                    const [name, input, newValue] = f;
+                    if (newValue === "" || input.value.trim() === newValue) return;
+                    if (mode === "empty" && input.value.trim() !== "") return;
+                    input.value = newValue;
+                    filled.push(name);
+                });
+
+                if (isVerb && separableInput.checked !== entry.isSeparable && (mode === "all" || entry.isSeparable)) {
+                    separableInput.checked = entry.isSeparable;
+                    filled.push("Ayrılabilir");
+                }
+
+                // Tür kodla değiştiği için alanların görünürlüğü yenilenir
+                pluralRow.classList.toggle("d-none", !/^\s*(der|die|das)\s/i.test(wordInput.value));
+                updateVerbBox();
+
+                Wiktionary.summary(entry, filled);
+            });
         })();
     </script>
 }

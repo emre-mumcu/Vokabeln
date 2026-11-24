@@ -22,4 +22,10 @@
     <Folder Include="Models\" />
   </ItemGroup>
 
+  <!-- Wiktionary kaynak dosyası yerelde kalır: build/publish çıktısına kopyalanmaz -->
+  <ItemGroup>
+    <Content Remove="wiktionary-de.json" />
+    <None Remove="wiktionary-de.json" />
+  </ItemGroup>
+
 </Project>

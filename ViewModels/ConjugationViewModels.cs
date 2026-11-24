@@ -17,6 +17,23 @@ namespace Vokabeln.ViewModels
 		public List<string?> Forms { get; set; } = [null, null, null, null, null, null];
 	}
 
+	// Detay sayfasındaki "Tüm çekimleri Wiktionary'den getir" sonucu
+	public class ConjugationImportResult
+	{
+		public string? Error { get; set; }
+
+		// Kaynaktaki madde (ör. "anfangen")
+		public string? Source { get; set; }
+
+		public List<Tense> Saved { get; set; } = [];
+
+		// Zaten girilmiş olduğu için atlanan (üzerine yazılmadıysa)
+		public List<Tense> Skipped { get; set; } = [];
+
+		// Kaynakta bu zamanın çekimi yok
+		public List<Tense> Missing { get; set; } = [];
+	}
+
 	public class WordDetailsViewModel
 	{
 		public WordEntity Word { get; set; } = new();

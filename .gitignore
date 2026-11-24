@@ -498,3 +498,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Wiktionary kaynak verisi (yerelde tutulur, ~280 MB; GitHub 100 MB sınırı)
+wiktionary-de.json
