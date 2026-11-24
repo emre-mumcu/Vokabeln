@@ -37,7 +37,7 @@ namespace Vokabeln.Controllers
 				if (exceptionFeature is not null)
 					logger.LogError(exceptionFeature.Error, "İşlenmeyen hata: {Path}", path);
 				else
-					logger.LogWarning("HTTP {StatusCode}: {Path}{Query}", statusCode, path, query);
+					logger.LogWarning("HTTP {StatusCode}: {Path}{Query}", statusCode, path, query ?? "");
 
 				try
 				{

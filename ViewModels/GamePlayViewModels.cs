@@ -69,4 +69,31 @@ namespace Vokabeln.ViewModels
 		public bool IsLast => Number >= Total;
 		public bool IsCorrect => Rows.Count > 0 && Rows.All(x => x.IsCorrect);
 	}
+
+	// ---- Çoğul oyunu ----
+
+	public class PluralPlaySetupViewModel
+	{
+		public int QuestionCount { get; set; } = 10;
+
+		// Tekil ismin artikeline göre filtre
+		public ArticleFilter Article { get; set; } = ArticleFilter.All;
+	}
+
+	public class PluralQuestionViewModel
+	{
+		public WordPlayState State { get; set; } = new();
+		public int Total { get; set; }
+		public int Score { get; set; }
+
+		public WordEntity Word { get; set; } = new();
+
+		// Cevaplandıktan sonra dolar
+		public bool Answered { get; set; }
+		public string? Given { get; set; }
+		public bool IsCorrect { get; set; }
+
+		public int Number => State.Index + 1;
+		public bool IsLast => Number >= Total;
+	}
 }

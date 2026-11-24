@@ -394,3 +394,39 @@ window.Wiktionary = (function () {
 })();
 
 // Check all
+
+
+// Umlaut keys
+// data-insert-char="ä" taşıyan butonlar, aynı formda en son odaklanılan metin kutusuna harfi imlecin olduğu yere ekler.
+// Odak kutuda kalır (mousedown engellenir), böylece yazmaya devam edilir. Örnek: Views/Shared/_UmlautKeys.cshtml
+
+(function () {
+    const lastInput = new WeakMap(); // form -> son odaklanılan metin kutusu
+
+    document.addEventListener("focusin", function (e) {
+        const el = e.target;
+        if (el.form && el.matches('input:not([type]), input[type="text"], input[type="search"], textarea')) {
+            lastInput.set(el.form, el);
+        }
+    });
+
+    // Butona basınca odak kutudan kaçmasın
+    document.addEventListener("mousedown", function (e) {
+        if (e.target.closest("[data-insert-char]")) e.preventDefault();
+    });
+
+    document.addEventListener("click", function (e) {
+        const btn = e.target.closest("[data-insert-char]");
+        if (!btn || !btn.form) return;
+
+        const input = lastInput.get(btn.form) || btn.form.querySelector('input:not([type]), input[type="text"]');
+        if (!input) return;
+
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? input.value.length;
+        input.setRangeText(btn.dataset.insertChar, start, end, "end");
+        input.focus();
+    });
+})();
+
+// Umlaut keys

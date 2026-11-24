@@ -1,0 +1,8 @@
+@* Almanca özel harfler için hızlı giriş (Türkçe klavyede ä/ö/ü/ß zor yazılır).
+   Butona basınca harf, formdaki son odaklanılan metin kutusuna imlecin olduğu yere eklenir (app.js: Umlaut keys). *@
+<div class="d-flex flex-wrap gap-2 mb-3" role="group" aria-label="Özel harfler">
+    @foreach (var letter in new[] { "ä", "ö", "ü", "ß", "Ä", "Ö", "Ü" })
+    {
+        <button type="button" class="btn-outline theme-secondary" data-insert-char="@letter" tabindex="-1">@letter</button>
+    }
+</div>

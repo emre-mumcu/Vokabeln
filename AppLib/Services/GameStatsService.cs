@@ -87,6 +87,9 @@ public class GameStatsService(AppDbContext dbContext) : IGameStatsService
         if (gameType == GameType.Conjugation)
             return tense?.GetDescription() ?? "-";
 
+        if (gameType == GameType.Plural)
+            return article == ArticleFilter.All ? "İsimler" : $"İsimler ({article.ToString().ToLowerInvariant()})";
+
         if (type is null)
             return "Tümü";
 

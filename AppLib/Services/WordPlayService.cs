@@ -23,10 +23,10 @@ public class WordPlayService(AppDbContext dbContext, IGameStatsService gameStats
             throw new AppException("Seçilen filtreye uygun, anlamı girilmiş kelime bulunamadı.");
 
         // Şık üretebilmek için en az iki farklı anlam gerekir
+        // (Take kullanılmaz: sıralamasız Take, EF Core'un her oyunda uyarı loglamasına yol açıyordu)
         var meaningCount = await WithMeaning(Db.Words.AsNoTracking())
             .Select(x => x.Meaning)
             .Distinct()
-            .Take(2)
             .CountAsync();
 
         if (meaningCount < 2)

@@ -69,6 +69,7 @@ builder.Services.AddScoped<IGameStatsService, GameStatsService>();
 builder.Services.AddScoped<IConjugationService, ConjugationService>();
 builder.Services.AddScoped<IArticlePlayService, ArticlePlayService>();
 builder.Services.AddScoped<IConjugationPlayService, ConjugationPlayService>();
+builder.Services.AddScoped<IPluralPlayService, PluralPlayService>();
 
 // Singleton: Wiktionary kaynak dosyasının indeksi uygulama boyunca bellekte tutulur (ilk aramada kurulur)
 builder.Services.AddSingleton<IWiktionaryService, WiktionaryService>();

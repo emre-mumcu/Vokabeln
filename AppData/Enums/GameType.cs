@@ -11,5 +11,9 @@ public enum GameType
     Article,
 
     [Description("Çekim oyunu")]
-    Conjugation
+    Conjugation,
+
+    // Veritabanında sayı olarak tutulur (3); yeni değer sona eklendiği için migration gerekmez
+    [Description("Çoğul oyunu")]
+    Plural
 }
