@@ -9,12 +9,6 @@
     // Düzenleme kaydedilince bu detay sayfasına geri dönülür
     var detailsUrl = $"{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
 
-    // Artikel rengi: der mavi, die kırmızı, das yeşil (Print ekranıyla aynı renk mantığı)
-    var word = Model.Word.TrimStart();
-    var articleClass = word.StartsWith("der ", StringComparison.OrdinalIgnoreCase) ? "fg-primary"
-                     : word.StartsWith("die ", StringComparison.OrdinalIgnoreCase) ? "fg-danger"
-                     : word.StartsWith("das ", StringComparison.OrdinalIgnoreCase) ? "fg-success"
-                     : "fg-body";
 }
 
 <div class="container mt-4">
@@ -28,7 +22,7 @@
 
         <div class="card-body">
 
-            <h1 class="text-4xl fw-bold text-break mb-1 @articleClass">@Model.Word</h1>
+            <h1 class="text-4xl fw-bold text-break mb-1 @Model.Word.ArticleColorClass()">@Model.Word</h1>
 
             @if (!string.IsNullOrWhiteSpace(Model.Plural))
             {

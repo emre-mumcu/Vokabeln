@@ -1,3 +1,4 @@
+@using Vokabeln.AppLib.Extensions
 @using Vokabeln.ViewModels
 @model WordPlayQuestionViewModel
 
@@ -22,7 +23,7 @@
         <div class="card-body">
 
             <p class="fg-secondary mb-1">@Model.Word.WordType</p>
-            <h2 class="mb-4">@Model.Word.Word</h2>
+            <h2 class="mb-4 @Model.Word.Word.ArticleColorClass()">@Model.Word.Word</h2>
 
             @if (!Model.Answered)
             {

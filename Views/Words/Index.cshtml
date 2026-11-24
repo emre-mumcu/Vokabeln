@@ -1,4 +1,5 @@
 ﻿@using Vokabeln.AppData.Entities
+@using Vokabeln.AppLib.Extensions
 @using Vokabeln.ViewModels
 
 @model PagedResult<WordEntity>
@@ -66,7 +67,7 @@
                         {
                             <tr>
                                 <td>@item.Id</td>
-                                <td>@item.Word</td>
+                                <td class="@item.Word.ArticleColorClass()">@item.Word</td>
                                 <td>@item.WordType</td>
                                 <td>@item.Meaning</td>
                                 <td>
