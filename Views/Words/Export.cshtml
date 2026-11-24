@@ -1,0 +1,39 @@
+@using Vokabeln.AppData.Enums
+@using Vokabeln.AppLib.Extensions
+@using Vokabeln.ViewModels
+@model ExportSelection
+
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h4 class="mb-0">Export Words</h4>
+        </div>
+
+        <div class="card-body">
+
+            <p class="fg-secondary">
+                Dosya her zaman aynı biçimdedir (kelime dizisi); seçimler yalnızca içeriği belirler.
+                Kelimeler fiil bilgileri (Hilfsverb, Partizip II, trennbar) ve tarihleriyle birlikte yazılır.
+            </p>
+
+            <form asp-action="Export" method="post">
+                <div asp-validation-summary="ModelOnly" class="fg-danger mb-3"></div>
+
+                <div class="mb-3">
+                    <label asp-for="SelectedType" class="form-label">Kelime türü</label>
+                    <select asp-for="SelectedType" class="form-control" asp-items="Html.GetEnumSelectList<WordType>()">
+                        <option value="">Tümü</option>
+                    </select>
+                </div>
+
+                <partial name="_TenseChecks" model="Model.Tenses" />
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a asp-action="Index" class="btn-outline theme-secondary">İptal</a>
+                    <button type="submit" class="btn-solid theme-primary"><i class="bi bi-box-arrow-up"></i> Export</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>

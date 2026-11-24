@@ -23,6 +23,21 @@
                 </ul>
             }
 
+            <div class="alert theme-info">
+                <strong>@Model.UpdatedCount</strong> kelime güncellendi.
+            </div>
+
+            @if (Model.Updated.Count > 0)
+            {
+                @* Her satır: kelime (değişen alanlar) *@
+                <ul class="mb-4">
+                    @foreach (var word in Model.Updated)
+                    {
+                        <li>@word</li>
+                    }
+                </ul>
+            }
+
             <div class="alert theme-warning">
                 <strong>@Model.SkippedCount</strong> words skipped.
             </div>

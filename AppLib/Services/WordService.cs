@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using Vokabeln.AppData;
 using Vokabeln.AppData.Entities;
 using Vokabeln.AppData.Enums;
+using Vokabeln.AppLib.Extensions;
 using Vokabeln.ViewModels;
 
 namespace Vokabeln.AppLib.Services;
@@ -169,20 +170,24 @@ public class WordService(AppDbContext dbContext) : IWordService
             .ToListAsync();
     }
 
-    public async Task<ImportResult> ImportAsync(IEnumerable<WordExport> words, ImportMode mode)
+    // Eski export dosyaları (yalnızca word, wordType, plural, meaning, sample) da aynı biçimle okunur;
+    // dosyada olmayan alanlar boş sayılır ve mevcut kelimelerde hiçbir zaman silinmez.
+    public async Task<ImportResult> ImportAsync(IEnumerable<WordExport> words, ImportOptions options)
     {
         var existing = (await dbContext.Words
             .AsNoTracking()
-            .Select(x => new { x.Word, x.WordType })
+            .Select(x => new { x.Id, x.Word, x.WordType })
             .ToListAsync()
         )
-        .Select(x => (x.Word, x.WordType))
-        .ToHashSet(WordKeyComparer.Instance);
+        .ToDictionary(x => (x.Word, x.WordType), x => x.Id, WordKeyComparer.Instance);
 
+        var tenses = options.Tenses.ToHashSet();
         var inFile = new HashSet<(string Word, WordType Type)>(WordKeyComparer.Instance);
 
         var candidates = new List<WordEntity>();
+        var updates = new List<(int Id, string Word, WordExport Source)>();
         var added = new List<string>();
+        var updated = new List<string>();
         var skipped = new List<SkippedWord>();
         var failed = new List<FailedWord>();
 
@@ -199,41 +204,58 @@ public class WordService(AppDbContext dbContext) : IWordService
 
             var key = (word, w.WordType);
 
-            if (existing.Contains(key))
-            {
-                skipped.Add(new SkippedWord(word, $"Veritabanında zaten var ({w.WordType})"));
-                continue;
-            }
-
             if (!inFile.Add(key))
             {
                 skipped.Add(new SkippedWord(word, $"Dosyada aynı türle birden fazla kez geçiyor ({w.WordType})"));
                 continue;
             }
 
-            candidates.Add(FromExport(w, word));
+            if (existing.TryGetValue(key, out var id))
+            {
+                if (options.Existing == ExistingWordMode.Skip)
+                    skipped.Add(new SkippedWord(word, $"Veritabanında zaten var ({w.WordType})"));
+                else
+                    updates.Add((id, word, w));
+
+                continue;
+            }
+
+            candidates.Add(FromExport(w, word, tenses));
         }
 
         // 2) Kaydetme
-        if (mode == ImportMode.Bulk)
+        if (options.Mode == ImportMode.Bulk)
         {
-            if (candidates.Count > 0)
-            {
-                dbContext.Words.AddRange(candidates);
+            // Tek parça: bir kelime hata verirse hiçbir ekleme/güncelleme kaydedilmez
+            var changes = new List<(string Word, string Change)>();
 
+            dbContext.Words.AddRange(candidates);
+
+            foreach (var (id, word, source) in updates)
+            {
+                var change = await ApplyUpdateAsync(id, source, options.Existing, tenses);
+
+                if (change is null)
+                    skipped.Add(new SkippedWord(word, "Veritabanında zaten var; değişecek alan yok"));
+                else
+                    changes.Add((word, change));
+            }
+
+            if (candidates.Count > 0 || changes.Count > 0)
+            {
                 try
                 {
                     await dbContext.SaveChangesAsync();
                     added.AddRange(candidates.Select(x => x.Word));
+                    updated.AddRange(changes.Select(x => $"{x.Word} ({x.Change})"));
                 }
                 catch (DbUpdateException ex)
                 {
-                    // Toplu kayıt tek parça geri alınır: hiçbir kelime eklenmedi
-                    foreach (var entity in candidates)
-                        dbContext.Entry(entity).State = EntityState.Detached;
+                    dbContext.ChangeTracker.Clear();
 
                     var error = ex.InnerException?.Message ?? ex.Message;
                     failed.AddRange(candidates.Select(x => new FailedWord(x.Word, error)));
+                    failed.AddRange(changes.Select(x => new FailedWord(x.Word, error)));
                 }
             }
         }
@@ -250,20 +272,123 @@ public class WordService(AppDbContext dbContext) : IWordService
                 }
                 catch (DbUpdateException ex)
                 {
-                    dbContext.Entry(entity).State = EntityState.Detached;
+                    dbContext.ChangeTracker.Clear();
                     failed.Add(new FailedWord(entity.Word, ex.InnerException?.Message ?? ex.Message));
+                }
+            }
+
+            foreach (var (id, word, source) in updates)
+            {
+                try
+                {
+                    var change = await ApplyUpdateAsync(id, source, options.Existing, tenses);
+
+                    if (change is null)
+                    {
+                        skipped.Add(new SkippedWord(word, "Veritabanında zaten var; değişecek alan yok"));
+                        continue;
+                    }
+
+                    await dbContext.SaveChangesAsync();
+                    updated.Add($"{word} ({change})");
+                }
+                catch (DbUpdateException ex)
+                {
+                    dbContext.ChangeTracker.Clear();
+                    failed.Add(new FailedWord(word, ex.InnerException?.Message ?? ex.Message));
                 }
             }
         }
 
-        return new ImportResult(added, skipped, failed);
+        return new ImportResult(added, updated, skipped, failed);
     }
 
-    // Export: tüm kelimeler, fiil bilgileri, tarihler ve girilmiş çekimlerle
-    public async Task<List<WordExport>> GetForExportAsync()
+    // Veritabanındaki kelimeyi dosyadakiyle günceller (kaydetmez). Değişen alanların adlarını, değişiklik yoksa null döndürür.
+    // FillEmpty: yalnızca boş alanlar ve girilmemiş zamanlar. Overwrite: dosyada dolu olan her alan ve seçilen zamanlar.
+    // Dosyada boş olan alan hiçbir zaman silinmez (eski export'larda fiil bilgisi ve çekim yoktur).
+    private async Task<string?> ApplyUpdateAsync(int id, WordExport source, ExistingWordMode mode, HashSet<Tense> tenses)
     {
-        var words = await dbContext.Words
-            .AsNoTracking()
+        var entity = await dbContext.Words
+            .Include(x => x.Praesens)
+            .Include(x => x.Praeteritum)
+            .Include(x => x.Perfekt)
+            .Include(x => x.FuturI)
+            .Include(x => x.KonjunktivII)
+            .FirstAsync(x => x.Id == id);
+
+        var overwrite = mode == ExistingWordMode.Overwrite;
+        var changes = new List<string>();
+
+        string? Merge(string name, string? current, string? value)
+        {
+            value = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+            if (value is null || value == current || (!overwrite && !string.IsNullOrWhiteSpace(current)))
+                return current;
+
+            changes.Add(name);
+            return value;
+        }
+
+        entity.Plural = Merge("Çoğul", entity.Plural, source.Plural);
+        entity.Meaning = Merge("Anlam", entity.Meaning, source.Meaning);
+        entity.Sample = Merge("Örnek", entity.Sample, source.Sample);
+
+        if (entity.WordType == WordType.Verb)
+        {
+            entity.PartizipII = Merge("Partizip II", entity.PartizipII, source.PartizipII);
+
+            if (source.Auxiliary is { } aux && aux != entity.Auxiliary && (overwrite || entity.Auxiliary is null))
+            {
+                entity.Auxiliary = aux;
+                changes.Add("Hilfsverb");
+            }
+
+            // Eski dosyalarda alan yok (false okunur): yalnızca işaretlenir, kaldırılmaz
+            if (source.IsSeparable && !entity.IsSeparable)
+            {
+                entity.IsSeparable = true;
+                changes.Add("trennbar");
+            }
+
+            var conjugationChanged = false;
+            foreach (var (tense, c) in source.Conjugations ?? [])
+            {
+                if (!tenses.Contains(tense))
+                    continue;
+
+                var forms = FormsOf(c);
+                if (forms.All(x => x is null))
+                    continue;
+
+                var target = ConjugationsOf(entity)[tense];
+
+                if (target is { HasAnyForm: true } && (!overwrite || target.GetForms().SequenceEqual(forms)))
+                    continue;
+
+                target ??= CreateConjugation(entity, tense);
+                target.SetForms(forms);
+                changes.Add(tense.GetDescription());
+                conjugationChanged = true;
+            }
+
+            // Yalnızca çekim değiştiyse kelime değişmiş sayılmaz; tarih elle işaretlenir (mobil aktarım için)
+            if (conjugationChanged)
+                dbContext.Entry(entity).Property(x => x.UpdatedAt).IsModified = true;
+        }
+
+        return changes.Count > 0 ? string.Join(", ", changes) : null;
+    }
+
+    // Export: seçilen türdeki kelimeler, fiil bilgileri, tarihler ve seçilen zamanların çekimleriyle
+    public async Task<List<WordExport>> GetForExportAsync(ExportSelection selection)
+    {
+        var query = dbContext.Words.AsNoTracking();
+
+        if (selection.SelectedType is { } type)
+            query = query.Where(x => x.WordType == type);
+
+        var words = await query
             .Include(x => x.Praesens)
             .Include(x => x.Praeteritum)
             .Include(x => x.Perfekt)
@@ -272,13 +397,14 @@ public class WordService(AppDbContext dbContext) : IWordService
             .OrderBy(x => x.Word)
             .ToListAsync();
 
-        return words.Select(ToExport).ToList();
+        var tenses = selection.Tenses.ToHashSet();
+        return words.Select(x => ToExport(x, tenses)).ToList();
     }
 
-    private static WordExport ToExport(WordEntity w)
+    private static WordExport ToExport(WordEntity w, HashSet<Tense> tenses)
     {
         var conjugations = ConjugationsOf(w)
-            .Where(x => x.Value is { HasAnyForm: true })
+            .Where(x => tenses.Contains(x.Key) && x.Value is { HasAnyForm: true })
             .ToDictionary(x => x.Key, x => new ConjugationExport
             {
                 Ich = x.Value!.Ich,
@@ -316,7 +442,7 @@ public class WordService(AppDbContext dbContext) : IWordService
 
     // Import: dosyadaki kelimeden yeni kayıt; fiil bilgileri ve çekimler yalnızca fiillerde alınır.
     // Dosyadaki tarihler korunur, yoksa AppDbContext kayıt anını yazar.
-    private static WordEntity FromExport(WordExport w, string word)
+    private static WordEntity FromExport(WordExport w, string word, HashSet<Tense> tenses)
     {
         var isVerb = w.WordType == WordType.Verb;
 
@@ -340,28 +466,39 @@ public class WordService(AppDbContext dbContext) : IWordService
 
         foreach (var (tense, c) in w.Conjugations)
         {
-            var forms = new[] { c.Ich, c.Du, c.ErSieEs, c.Wir, c.Ihr, c.SieSie }
-                .Select(ConjugationService.NormalizeForm)
-                .ToList();
+            // Import ekranında seçilmeyen zamanlar alınmaz
+            if (!tenses.Contains(tense))
+                continue;
+
+            var forms = FormsOf(c);
 
             if (forms.All(x => x is null))
                 continue;
 
-            ConjugationBase target = tense switch
-            {
-                Tense.Praesens => entity.Praesens = new PraesensEntity(),
-                Tense.Praeteritum => entity.Praeteritum = new PraeteritumEntity(),
-                Tense.Perfekt => entity.Perfekt = new PerfektEntity(),
-                Tense.FuturI => entity.FuturI = new FuturIEntity(),
-                Tense.KonjunktivII => entity.KonjunktivII = new KonjunktivIIEntity(),
-                _ => throw new ArgumentOutOfRangeException(nameof(tense))
-            };
+            var target = CreateConjugation(entity, tense);
 
             target.SetForms(forms);
         }
 
         return entity;
     }
+
+    // Dosyadaki çekim -> ConjugationBase.PersonLabels sırasıyla normalize edilmiş 6 form
+    private static List<string?> FormsOf(ConjugationExport c)
+        => new[] { c.Ich, c.Du, c.ErSieEs, c.Wir, c.Ihr, c.SieSie }
+            .Select(ConjugationService.NormalizeForm)
+            .ToList();
+
+    // Kelimeye yeni (boş) çekim bağlar; kelimeyle birlikte kaydedilir
+    private static ConjugationBase CreateConjugation(WordEntity entity, Tense tense) => tense switch
+    {
+        Tense.Praesens => entity.Praesens = new PraesensEntity(),
+        Tense.Praeteritum => entity.Praeteritum = new PraeteritumEntity(),
+        Tense.Perfekt => entity.Perfekt = new PerfektEntity(),
+        Tense.FuturI => entity.FuturI = new FuturIEntity(),
+        Tense.KonjunktivII => entity.KonjunktivII = new KonjunktivIIEntity(),
+        _ => throw new ArgumentOutOfRangeException(nameof(tense))
+    };
 
     public async Task<string> CreateBackupAsync()
     {

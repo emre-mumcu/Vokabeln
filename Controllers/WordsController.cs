@@ -149,40 +149,55 @@ namespace Vokabeln.Controllers
 			PropertyNameCaseInsensitive = true
 		};
 
-		// Kelimeler, fiil bilgileri, tarihler ve çekimlerle (biçim: ViewModels/WordExportModels.cs)
+		// Export seçim ekranı: kelime türü ve dosyaya yazılacak çekim tabloları (varsayılan: tümü)
 		[HttpGet]
-		public async Task<IActionResult> Export()
+		public IActionResult Export() => View(new ExportSelection { Tenses = [.. Enum.GetValues<Tense>()] });
+
+		// Kelimeler, fiil bilgileri, tarihler ve seçilen çekimlerle (biçim: ViewModels/WordExportModels.cs).
+		// Biçim her zaman aynı WordExport dizisidir; eski ve yeni import'larla uyumludur.
+		[HttpPost]
+		[ValidateAntiForgeryToken]
+		[ActionName("Export")] // GET ile aynı ad; URL aynı kalır
+		public async Task<IActionResult> ExportPost(ExportSelection selection)
 		{
-			var export = await wordService.GetForExportAsync();
+			var export = await wordService.GetForExportAsync(selection);
+
+			if (export.Count == 0)
+			{
+				ModelState.AddModelError("", "Seçilen türde kelime yok.");
+				return View(selection);
+			}
 
 			var bytes = JsonSerializer.SerializeToUtf8Bytes(export, ExportOptions);
 
-			var fileName = $"words-{DateTime.Now:yyyyMMdd-HHmm}.json";
+			var suffix = selection.SelectedType is { } type ? $"-{type.ToString().ToLowerInvariant()}" : "";
+			var fileName = $"words{suffix}-{DateTime.Now:yyyyMMdd-HHmm}.json";
 
 			return File(bytes, "application/json", fileName);
 		}
 
 
 		[HttpGet]
-		public IActionResult Import() => View();
+		public IActionResult Import() => View(new ImportOptions { Tenses = [.. Enum.GetValues<Tense>()] });
 
 		// [RequestSizeLimit(100 * 1024 * 1024)] // 100 MB
 		[HttpPost]
 		[ValidateAntiForgeryToken]
-		public async Task<IActionResult> Import(IFormFile? file, ImportMode mode = ImportMode.Bulk)
+		public async Task<IActionResult> Import(IFormFile? file, ImportOptions options)
 		{
 			if (file is null || file.Length == 0)
 			{
 				ModelState.AddModelError("", "Lütfen bir JSON dosyası seçin.");
-				return View();
+				return View(options);
 			}
 
 			if (file.Length > 5 * 1024 * 1024) // 5 MB
 			{
 				ModelState.AddModelError("", "Dosya çok büyük (en fazla 5 MB).");
-				return View();
+				return View(options);
 			}
 
+			// Eski export dosyaları da aynı biçimdedir (WordExport dizisi; yeni alanlar yoksa boş sayılır)
 			List<WordExport>? words;
 			try
 			{
@@ -192,16 +207,16 @@ namespace Vokabeln.Controllers
 			catch (JsonException ex)
 			{
 				ModelState.AddModelError("", $"Geçersiz JSON: {ex.Message}");
-				return View();
+				return View(options);
 			}
 
 			if (words is null || words.Count == 0)
 			{
 				ModelState.AddModelError("", "Dosyada kelime bulunamadı.");
-				return View();
+				return View(options);
 			}
 
-			var result = await wordService.ImportAsync(words, mode);
+			var result = await wordService.ImportAsync(words, options);
 			return View("ImportResult", result);
 		}
 

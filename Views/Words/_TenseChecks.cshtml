@@ -1,0 +1,21 @@
+@using Vokabeln.AppData.Enums
+@using Vokabeln.AppLib.Extensions
+@model List<Tense>
+
+@* Export ve Import ekranlarında çekim tablosu seçimi (name="Tenses"); hiçbiri seçilmezse çekimler dahil edilmez *@
+<div class="mb-3">
+    <label class="form-label d-block">Fiil çekimleri</label>
+
+    <div class="d-flex flex-wrap gap-3">
+        @foreach (var tense in Enum.GetValues<Tense>())
+        {
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="Tenses" id="tense@(tense)" value="@tense"
+                       @(Model.Contains(tense) ? "checked" : "") />
+                <label class="form-check-label" for="tense@(tense)">@tense.GetDescription()</label>
+            </div>
+        }
+    </div>
+
+    <div><small class="fg-secondary">Hiçbiri seçilmezse çekimler dahil edilmez. Çekimler yalnızca fiillerde bulunur.</small></div>
+</div>

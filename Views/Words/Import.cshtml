@@ -1,10 +1,21 @@
-﻿<div class="container mt-4">
+﻿@using Vokabeln.AppData.Enums
+@using Vokabeln.AppLib.Extensions
+@using Vokabeln.ViewModels
+@model ImportOptions
+
+<div class="container mt-4">
     <div class="card shadow-sm">
         <div class="card-header">
             <h4 class="mb-0">Import Words</h4>
         </div>
 
         <div class="card-body">
+
+            <p class="fg-secondary">
+                Export ile alınan dosyalar içe aktarılır; eski export dosyaları da (yalnızca kelime, tür, çoğul, anlam, örnek) desteklenir.
+                Dosyada boş olan alanlar veritabanında hiçbir zaman silinmez.
+            </p>
+
             <form asp-action="Import" method="post" enctype="multipart/form-data">
                 <div asp-validation-summary="All" class="fg-danger mb-3"></div>
 
@@ -13,20 +24,41 @@
                     <input type="file" id="file" name="file" class="form-control" accept=".json,application/json" />
                 </div>
 
+                <partial name="_TenseChecks" model="Model.Tenses" />
+
+                <div class="mb-3">
+                    <label class="form-label d-block">Veritabanında zaten olan kelimeler <small class="fg-secondary">(kelime + tür aynıysa)</small></label>
+
+                    @foreach (var (mode, hint) in new (ExistingWordMode, string)[]
+                    {
+                        (ExistingWordMode.Skip, "dokunulmaz, atlananlarda listelenir"),
+                        (ExistingWordMode.FillEmpty, "boş alanlar ve girilmemiş çekim zamanları dosyadan doldurulur"),
+                        (ExistingWordMode.Overwrite, "dosyada dolu olan alanlar ve seçilen çekim zamanları üzerine yazılır")
+                    })
+                    {
+                        <div class="form-check">
+                            <input asp-for="Existing" type="radio" value="@mode" id="existing@(mode)" class="form-check-input" />
+                            <label for="existing@(mode)" class="form-check-label">
+                                @mode.GetDescription() <small class="fg-secondary">(@hint)</small>
+                            </label>
+                        </div>
+                    }
+                </div>
+
                 <div class="mb-3">
                     <label class="form-label d-block">Kayıt yöntemi</label>
 
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="mode" id="modeBulk" value="Bulk" checked />
+                        <input asp-for="Mode" type="radio" value="@ImportMode.Bulk" id="modeBulk" class="form-check-input" />
                         <label class="form-check-label" for="modeBulk">
-                            Toplu ekle <small class="fg-secondary">(hızlı; bir kelime hata verirse hiçbiri eklenmez)</small>
+                            Toplu kaydet <small class="fg-secondary">(hızlı; bir kelime hata verirse hiçbiri kaydedilmez)</small>
                         </label>
                     </div>
 
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="mode" id="modeOneByOne" value="OneByOne" />
+                        <input asp-for="Mode" type="radio" value="@ImportMode.OneByOne" id="modeOneByOne" class="form-check-input" />
                         <label class="form-check-label" for="modeOneByOne">
-                            Tek tek ekle <small class="fg-secondary">(yavaş; hatalı kelimeler ayrı listelenir, diğerleri eklenir)</small>
+                            Tek tek kaydet <small class="fg-secondary">(yavaş; hatalı kelimeler ayrı listelenir, diğerleri kaydedilir)</small>
                         </label>
                     </div>
                 </div>

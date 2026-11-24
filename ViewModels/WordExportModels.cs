@@ -25,6 +25,30 @@ namespace Vokabeln.ViewModels
 		public Dictionary<Tense, ConjugationExport>? Conjugations { get; set; }
 	}
 
+	// Export ekranındaki seçimler. Dosya biçimi değişmez (WordExport dizisi); seçimler yalnızca içeriği belirler.
+	public class ExportSelection
+	{
+		// Kelime türü filtresi (null = tümü)
+		public WordType? SelectedType { get; set; }
+
+		// Dosyaya yazılacak çekim tabloları (boş = çekim yok)
+		// Varsayılan boş: hiç işaretlenmezse formdan değer gelmez (ekran açılışında hepsi işaretli gelir)
+		public List<Tense> Tenses { get; set; } = [];
+	}
+
+	// Import ekranındaki seçimler
+	public class ImportOptions
+	{
+		public ImportMode Mode { get; set; } = ImportMode.Bulk;
+
+		// Veritabanında zaten olan kelimeler
+		public ExistingWordMode Existing { get; set; } = ExistingWordMode.Skip;
+
+		// Dosyadan alınacak çekim tabloları (boş = çekimler alınmaz)
+		// Varsayılan boş: hiç işaretlenmezse formdan değer gelmez (ekran açılışında hepsi işaretli gelir)
+		public List<Tense> Tenses { get; set; } = [];
+	}
+
 	// Bir kişi için birden fazla doğru form "/" ile ayrılır: "fragte / frug"
 	public class ConjugationExport
 	{
