@@ -63,17 +63,17 @@
 
         <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
 
-            <a href="@backUrl" class="btn btn-outline theme-secondary"><i class="bi bi-arrow-left"></i> Geri</a>
+            <a href="@backUrl" class="btn-outline theme-secondary"><i class="bi bi-arrow-left"></i> Geri</a>
 
             <div class="d-flex gap-2">
-                <a asp-action="Word" asp-route-id="@Model.Id" asp-route-returnUrl="@detailsUrl" class="btn btn-solid theme-primary">
+                <a asp-action="Word" asp-route-id="@Model.Id" asp-route-returnUrl="@detailsUrl" class="btn-solid theme-primary">
                     <i class="bi bi-pencil-square"></i> Edit
                 </a>
 
                 <form asp-action="Delete" asp-route-id="@Model.Id" method="post">
                     @* Silinen kelimenin detay sayfası artık olmayacağı için listeye dönülür *@
                     <input type="hidden" name="returnUrl" value="@backUrl" />
-                    <button type="submit" class="btn btn-solid theme-danger"
+                    <button type="submit" class="btn-solid theme-danger"
                             data-confirm="Bu kelimeyi silmek istediğinize emin misiniz?">
                         <i class="bi bi-trash3"></i> Delete
                     </button>

@@ -322,6 +322,17 @@ namespace Vokabeln.Controllers
 			return View(filter);
 		}
 
+		// Listedeki kelimeleri yazdırır: arama varsa sonuçları, yoksa tümünü (sayfalama olmadan)
+		[HttpGet]
+		public async Task<IActionResult> PrintList(WordSearch search, string? returnUrl)
+		{
+			ViewData["Search"] = search;
+			ViewData["ReturnUrl"] = returnUrl;
+
+			var words = await wordService.GetForPrintAsync(search);
+			return View(words);
+		}
+
 		private bool IsLocalRequest()
 		{
 			var ip = HttpContext.Connection.RemoteIpAddress;

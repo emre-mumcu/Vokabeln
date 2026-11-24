@@ -109,12 +109,23 @@ public class WordService(AppDbContext dbContext) : IWordService
         var inMeaning = search.InMeaning || search.NoFieldSelected;
         var inPlural = search.InPlural;
         var inSample = search.InSample;
+        var ignoreArticle = search.IgnoreArticle;
 
-        // NULL alanlarda LIKE sonucu NULL döner ve kayıt eşleşmemiş sayılır
+        // NULL alanlarda LIKE sonucu NULL döner ve kayıt eşleşmemiş sayılır.
+        // Artikel yok sayılırsa kelime ve çoğul, "der "/"die "/"das " ile başlıyorsa 5. karakterden itibaren karşılaştırılır
+        // (LIKE büyük/küçük harf duyarsız olduğu için "Der Tisch" da yakalanır).
         return query.Where(x =>
-            (inWord && EF.Functions.Like(x.Word, pattern, LikeEscape)) ||
+            (inWord && EF.Functions.Like(
+                ignoreArticle && (EF.Functions.Like(x.Word, "der %") || EF.Functions.Like(x.Word, "die %") || EF.Functions.Like(x.Word, "das %"))
+                    ? x.Word.Substring(4)
+                    : x.Word,
+                pattern, LikeEscape)) ||
             (inMeaning && EF.Functions.Like(x.Meaning!, pattern, LikeEscape)) ||
-            (inPlural && EF.Functions.Like(x.Plural!, pattern, LikeEscape)) ||
+            (inPlural && EF.Functions.Like(
+                ignoreArticle && (EF.Functions.Like(x.Plural!, "der %") || EF.Functions.Like(x.Plural!, "die %") || EF.Functions.Like(x.Plural!, "das %"))
+                    ? x.Plural!.Substring(4)
+                    : x.Plural!,
+                pattern, LikeEscape)) ||
             (inSample && EF.Functions.Like(x.Sample!, pattern, LikeEscape)));
     }
 
@@ -571,9 +582,23 @@ public class WordService(AppDbContext dbContext) : IWordService
                 (das && x.Word.StartsWith("das ")));
         }
 
-        var list = await query.ToListAsync();
+        return SortForPrint(await query.ToListAsync());
+    }
 
-        // Sıralama: artikeli yok sayarak (der Tisch -> "Tisch"), Almanca alfabeye göre
+    // Listedeki kelimelerin (arama sonucu ya da tümü) sayfalama olmadan yazdırılması için
+    public async Task<List<WordEntity>> GetForPrintAsync(WordSearch? search)
+    {
+        var query = dbContext.Words.AsNoTracking();
+
+        if (search is { IsActive: true })
+            query = ApplySearch(query, search);
+
+        return SortForPrint(await query.ToListAsync());
+    }
+
+    // Sıralama: artikeli yok sayarak (der Tisch -> "Tisch"), Almanca alfabeye göre
+    private static List<WordEntity> SortForPrint(List<WordEntity> list)
+    {
         var comparer = StringComparer.Create(new CultureInfo("de-DE"), ignoreCase: true);
 
         return list

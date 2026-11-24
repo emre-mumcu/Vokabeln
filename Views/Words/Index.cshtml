@@ -1,36 +1,17 @@
 ﻿@using Vokabeln.AppData.Entities
-@using Vokabeln.AppData.Enums
 @using Vokabeln.ViewModels
 
 @model PagedResult<WordEntity>
 
-@functions {
-    static string FieldsText(WordSearch s)
-    {
-        if (s.NoFieldSelected) return "Kelime, Anlam";
-
-        var fields = new List<string>();
-        if (s.InWord) fields.Add("Kelime");
-        if (s.InMeaning) fields.Add("Anlam");
-        if (s.InPlural) fields.Add("Çoğul");
-        if (s.InSample) fields.Add("Örnek");
-        return string.Join(", ", fields);
-    }
-
-    static string ModeText(SearchMode mode) => mode switch
-    {
-        SearchMode.StartsWith => "ile başlayan",
-        SearchMode.EndsWith => "ile biten",
-        SearchMode.Exact => "tam eşleşen",
-        _ => "içinde geçen"
-    };
-}
-
 @{
     var search = ViewData["Search"] as WordSearch;
 
-    // Edit/View/Delete sonrası bu listeye (aynı sayfa ve arama ile) dönülür
+    // Edit/View/Delete/Yazdır sonrası bu listeye (aynı sayfa ve arama ile) dönülür
     var returnUrl = $"{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
+
+    // Yazdır: arama varsa yalnızca sonuçları, yoksa tüm kelimeleri (sayfalama olmadan)
+    var printRoute = search is { IsActive: true } ? search.ToRouteValues() : new Dictionary<string, string>();
+    printRoute["returnUrl"] = returnUrl;
 }
 
 <div class="container p-5">
@@ -39,7 +20,10 @@
 
         <h3 class="mb-0">Words</h3>
 
-        <a asp-action="Word" class="btn btn-primary"><i class="bi bi-plus-lg"></i> New</a>
+        <div class="d-flex gap-2">
+            <a asp-action="PrintList" asp-all-route-data="printRoute" class="btn-outline theme-secondary"><i class="bi bi-printer"></i> Yazdır</a>
+            <a asp-action="Word" class="btn-solid theme-primary"><i class="bi bi-plus-lg"></i> New</a>
+        </div>
 
     </div>
 
@@ -48,7 +32,7 @@
         <div class="alert theme-info d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span>
                 <i class="bi bi-search" aria-hidden="true"></i>
-                <strong>"@search.Q"</strong> · @FieldsText(search) · @ModeText(search.Mode) · @Model.TotalCount sonuç
+                @search.Describe() · @Model.TotalCount sonuç
             </span>
             <span class="d-flex gap-2">
                 <a asp-action="Search" asp-all-route-data="search.ToRouteValues()" class="btn-text theme-accent"><i class="bi bi-funnel"></i> Aramayı düzenle</a>

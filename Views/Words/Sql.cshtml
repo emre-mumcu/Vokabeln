@@ -118,12 +118,12 @@
                 <div class="d-flex justify-content-end gap-2">
                     @if (Model.Detail is not null)
                     {
-                        <button type="button" class="btn btn-secondary" id="sampleBtn"
+                        <button type="button" class="btn-outline theme-secondary" id="sampleBtn"
                                 data-sql='SELECT * FROM "@Model.Detail.Name" LIMIT 100;'>
                             Örnek sorgu
                         </button>
                     }
-                    <button type="submit" class="btn btn-primary">Çalıştır (Ctrl+Enter)</button>
+                    <button type="submit" class="btn-solid theme-primary">Çalıştır (Ctrl+Enter)</button>
                 </div>
             </form>
 

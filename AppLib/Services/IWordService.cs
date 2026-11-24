@@ -22,6 +22,7 @@ public interface IWordService
 	DbFilesViewModel GetDbFiles();
 	Task<CheckpointResult> CheckpointAsync();
 	Task<List<WordEntity>> GetForPrintAsync(WordType? type, bool der, bool die, bool das);
+	Task<List<WordEntity>> GetForPrintAsync(WordSearch? search);
 	Task<List<TableStat>> GetTablesAsync();
 	Task<TableDetail?> GetTableDetailAsync(string table);
 	Task<SqlResult> ExecuteSqlAsync(string sql, bool allowWrite);

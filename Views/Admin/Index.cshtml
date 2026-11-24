@@ -13,7 +13,7 @@
             </p>
 
             <form asp-action="ResetGameStats" method="post">
-                <button type="submit" class="btn btn-danger"
+                <button type="submit" class="btn-solid theme-danger"
                         data-confirm="Tüm oyun istatistikleri kalıcı olarak silinecek. Devam edilsin mi?"
                         disabled="@(Model.GameCount == 0 && Model.AnswerCount == 0)">
                     <i class="bi bi-arrow-counterclockwise"></i> İstatistikleri sıfırla

@@ -43,8 +43,8 @@
 
                     <div class="d-flex justify-content-end gap-2">
                         @* Aynı formu Finish'e gönderir; şık seçmek gerekmez *@
-                        <button type="submit" asp-action="Finish" formnovalidate class="btn btn-secondary">Bitir</button>
-                        <button type="submit" class="btn btn-primary">Cevapla</button>
+                        <button type="submit" asp-action="Finish" formnovalidate class="btn-outline theme-secondary">Bitir</button>
+                        <button type="submit" class="btn-solid theme-primary">Cevapla</button>
                     </div>
                 </form>
             }
@@ -85,9 +85,9 @@
                     <div class="d-flex justify-content-end gap-2">
                         @if (!Model.IsLast)
                         {
-                            <button type="submit" asp-action="Finish" class="btn btn-secondary">Bitir</button>
+                            <button type="submit" asp-action="Finish" class="btn-outline theme-secondary">Bitir</button>
                         }
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn-solid theme-primary">
                             @(Model.IsLast ? "Sonucu gör" : "Sonraki soru")
                         </button>
                     </div>

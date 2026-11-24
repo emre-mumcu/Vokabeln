@@ -62,9 +62,17 @@
                     }
                 </div>
 
+                <div class="form-check mb-3">
+                    <input asp-for="IgnoreArticle" class="form-check-input" />
+                    <label asp-for="IgnoreArticle" class="form-check-label">
+                        Artikeli yok say
+                        <small class="fg-secondary">(der/die/das; kelime ve çoğul alanlarında. Ör: "Tisch ile başlayan" → der Tisch)</small>
+                    </label>
+                </div>
+
                 <div class="d-flex justify-content-end gap-2">
-                    <a asp-action="Index" class="btn btn-outline theme-secondary">İptal</a>
-                    <button type="submit" class="btn btn-solid theme-primary"><i class="bi bi-search"></i> Ara</button>
+                    <a asp-action="Index" class="btn-outline theme-secondary">İptal</a>
+                    <button type="submit" class="btn-solid theme-primary"><i class="bi bi-search"></i> Ara</button>
                 </div>
             </form>
 
