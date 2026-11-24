@@ -88,7 +88,15 @@
                 <div class="mb-3 row">
                     <label asp-for="Meaning" class="sm:col-2 col-form-label"> </label>
                     <div class="sm:col-10">
-                        <textarea asp-for="Meaning" class="form-control" rows="3"></textarea>
+                        <div class="d-flex align-items-start gap-2">
+                            <textarea asp-for="Meaning" class="form-control" rows="3"></textarea>
+                            @* PONS sözlüğünden (Almanca -> Türkçe) karşılıkları getirir; seçilenler anlama yazılır *@
+                            <button type="button" id="ponsButton" class="btn-outline theme-secondary text-nowrap"
+                                    data-pons-url="@Url.Action("Lookup", "Pons")"
+                                    title="Kelimenin Türkçe karşılıklarını PONS sözlüğünden getirir">
+                                <i class="bi bi-translate"></i> PONS'tan çek
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -217,6 +225,41 @@
                 updateVerbBox();
 
                 Wiktionary.summary(entry, filled);
+            });
+
+            // PONS'tan çek: seçilen Türkçe karşılıklar anlama yazılır.
+            // Anlam doluysa sorulur: üzerine yaz ya da sona ekle (aynı karşılık iki kez eklenmez).
+            const ponsButton = document.getElementById("ponsButton");
+
+            ponsButton.addEventListener("click", async function () {
+                const selected = await Pons.pick(ponsButton, wordInput.value);
+                if (!selected) return;
+
+                const current = meaningInput.value.trim();
+                let mode = "overwrite";
+
+                if (current !== "" && typeof Swal !== "undefined") {
+                    const answer = await Swal.fire({
+                        icon: "question",
+                        title: "Anlam dolu",
+                        text: "Mevcut anlam: " + current,
+                        showDenyButton: true,
+                        showCancelButton: true,
+                        confirmButtonText: "Sona ekle",
+                        denyButtonText: "Üzerine yaz",
+                        cancelButtonText: "Vazgeç"
+                    });
+                    if (answer.isDismissed) return;
+                    mode = answer.isConfirmed ? "append" : "overwrite";
+                }
+
+                const parts = mode === "append" ? current.split(/\s*[,;]\s*/).filter(function (x) { return x; }) : [];
+                selected.forEach(function (s) {
+                    if (!parts.some(function (p) { return p.toLowerCase() === s.toLowerCase(); })) parts.push(s);
+                });
+
+                meaningInput.value = parts.join(", ");
+                meaningInput.focus();
             });
         })();
     </script>

@@ -74,6 +74,14 @@ builder.Services.AddScoped<IPluralPlayService, PluralPlayService>();
 // Singleton: Wiktionary kaynak dosyasının indeksi uygulama boyunca bellekte tutulur (ilk aramada kurulur)
 builder.Services.AddSingleton<IWiktionaryService, WiktionaryService>();
 
+// PONS sözlüğü (Almanca -> Türkçe). Secret: "Pons:Secret" (user-secrets / ortam değişkeni Pons__Secret; appsettings'e yazılmaz)
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient<IPonsService, PonsService>(client =>
+{
+    client.BaseAddress = new Uri("https://api.pons.com/v1/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
+
 ///
 /// Log ve hata kayıtları (Tools -> Log Kayıtları / Hata Kayıtları): ayrı SQLite dosyası (ConnectionStrings:LogConnection, Logs.db).
 /// DatabaseLoggerProvider, ILogger kayıtlarını arka planda bu dosyaya yazar; seviyeler appsettings "Logging:Database" altında.

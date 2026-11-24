@@ -430,3 +430,127 @@ window.Wiktionary = (function () {
 })();
 
 // Umlaut keys
+
+
+// Pons
+// Kelime formundaki "PONS'tan çek": /Pons/Lookup ile Türkçe karşılıkları alır, onay kutularıyla seçtirir.
+// Aranan kelimeyle tam eşleşen maddenin ana karşılıkları önceden işaretlidir. Seçilenler dizi olarak döner (vazgeçilirse null).
+
+window.Pons = (function () {
+    const hasSwal = function () { return typeof Swal !== "undefined"; };
+
+    function message(icon, text) {
+        if (hasSwal()) return Swal.fire({ icon: icon, text: text });
+        window.alert(text);
+        return Promise.resolve();
+    }
+
+    function el(tag, className, text) {
+        const e = document.createElement(tag);
+        if (className) e.className = className;
+        if (text) e.textContent = text;
+        return e;
+    }
+
+    // Maddeler, anlam başlıkları ve onay kutulu karşılıklar
+    function buildList(result) {
+        const box = el("div", "text-start");
+        const query = result.query.toLowerCase();
+        let index = 0;
+
+        result.entries.forEach(function (entry) {
+            const exact = entry.headword.toLowerCase() === query;
+
+            box.appendChild(el("div", "fw-bold mt-3 mb-1", entry.headword + (entry.wordClass ? " · " + entry.wordClass : "")));
+            if (entry.headwordFull && entry.headwordFull !== entry.headword) {
+                box.appendChild(el("div", "small fg-secondary mb-1", entry.headwordFull));
+            }
+
+            entry.senses.forEach(function (sense) {
+                if (sense.header) box.appendChild(el("div", "small fg-secondary mt-1", sense.header));
+
+                sense.translations.forEach(function (t) {
+                    const id = "pons" + (index++);
+                    const check = el("div", "form-check");
+                    const input = el("input", "form-check-input");
+                    input.type = "checkbox";
+                    input.id = id;
+                    input.value = t.target;
+                    // Ana karşılık: tam eşleşen maddede kaynağı kelimenin kendisi olan çeviri (deyimler işaretsiz gelir)
+                    input.checked = exact && t.source.toLowerCase() === query;
+
+                    const label = el("label", "form-check-label");
+                    label.htmlFor = id;
+                    if (t.source.toLowerCase() !== entry.headword.toLowerCase()) {
+                        label.appendChild(el("span", "fg-secondary", t.source + " → "));
+                    }
+                    label.appendChild(el("span", "", t.target));
+
+                    check.appendChild(input);
+                    check.appendChild(label);
+                    box.appendChild(check);
+                });
+            });
+        });
+
+        box.appendChild(el("div", "small fg-secondary mt-3", "Kaynak: PONS (pons.com)"));
+        return box;
+    }
+
+    async function pick(button, word) {
+        if (!word || !word.trim()) {
+            await message("info", "Önce kelimeyi yazın.");
+            return null;
+        }
+
+        const original = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="bi bi-hourglass-split"></i> Aranıyor...';
+
+        let result;
+        try {
+            const response = await fetch(button.dataset.ponsUrl + "?q=" + encodeURIComponent(word.trim()), { headers: { "Accept": "application/json" } });
+            if (!response.ok) throw new Error(response.status);
+            result = await response.json();
+        } catch (e) {
+            await message("error", "PONS'tan veri alınamadı.");
+            return null;
+        } finally {
+            button.disabled = false;
+            button.innerHTML = original;
+        }
+
+        if (!result.success || result.entries.length === 0) {
+            await message(result.success ? "info" : "error", result.message || "Bulunamadı.");
+            return null;
+        }
+
+        if (!hasSwal()) {
+            const first = result.entries[0].senses[0].translations[0];
+            return first ? [first.target] : null;
+        }
+
+        const list = buildList(result);
+        const choice = await Swal.fire({
+            title: result.query,
+            html: list,
+            showCancelButton: true,
+            confirmButtonText: "Anlama ekle",
+            cancelButtonText: "Vazgeç",
+            preConfirm: function () {
+                const selected = Array.from(list.querySelectorAll("input:checked")).map(function (x) { return x.value; });
+                if (selected.length === 0) {
+                    Swal.showValidationMessage("En az bir karşılık seçin.");
+                    return false;
+                }
+                return selected;
+            }
+        });
+
+        return choice.isConfirmed ? choice.value : null;
+    }
+
+    return { pick: pick };
+})();
+
+// Pons
