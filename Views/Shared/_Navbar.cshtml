@@ -1,4 +1,4 @@
-﻿<nav class="navbar lg:navbar-expand bg-3 rounded-5 p-4 m-4">
+﻿<nav class="navbar md:navbar-expand bg-3 rounded-5 p-4 m-4">
     <div class="container-fluid">
         <a class="navbar-brand" href="#">die Vokabeln</a>
         <button class="btn-icon navbar-toggler" type="button" data-bs-toggle="drawer" data-bs-target="#navbarColor03"
@@ -48,11 +48,12 @@
                 @* Hızlı arama: yazdıkça açılır listede sonuç gösterir (app.js), Ara ise tüm sonuçları listeler *@
                 <form asp-controller="Words" asp-action="Index" method="get" role="search"
                       id="quickSearchForm" class="d-flex gap-2 position-relative">
+                    @* data-details-url'de id = "": detay sayfasındayken o sayfanın id'si adrese eklenmesin (/Words/Details/20/908 olmasın); id'yi JS ekler *@
                     <input type="search" name="q" id="quickSearch" class="form-control" placeholder="Kelime ara..."
                            autocomplete="off" aria-label="Kelime ara" aria-controls="quickSearchResults"
                            value="@Context.Request.Query["q"]"
                            data-url="@Url.Action("QuickSearch", "Words")"
-                           data-details-url="@Url.Action("Details", "Words")" />
+                           data-details-url="@Url.Action("Details", "Words", new { id = "" })" />
                     <button type="submit" class="btn-solid theme-primary"><i class="bi bi-search" aria-hidden="true"></i> Ara</button>
 
                     <div id="quickSearchResults" class="menu menu-scrollable top-100 start-0 w-100 mt-1" role="listbox"></div>

@@ -97,9 +97,19 @@
     }
 
     function detailsUrl(id) {
-        // Detay sayfasındaki "Geri" butonu, aramanın yapıldığı sayfaya dönsün
-        const returnUrl = window.location.pathname + window.location.search;
-        return input.dataset.detailsUrl + "/" + id + "?returnUrl=" + encodeURIComponent(returnUrl);
+        // Detay sayfasındaki "Geri" butonu, aramanın yapıldığı sayfaya dönsün.
+        // Detay sayfasından aranırsa o sayfanın kendi returnUrl'i aktarılır: zincir oluşmaz, Geri ilk listeye döner.
+        let returnUrl = window.location.pathname + window.location.search;
+
+        if (window.location.pathname.toLowerCase().startsWith(input.dataset.detailsUrl.toLowerCase() + "/")) {
+            const previous = new URLSearchParams(window.location.search).get("returnUrl");
+
+            // Yalnızca site içi adres ("/..." ama "//..." değil); yoksa Geri varsayılan olarak kelime listesine döner
+            returnUrl = previous && previous.startsWith("/") && !previous.startsWith("//") ? previous : null;
+        }
+
+        const url = input.dataset.detailsUrl + "/" + id;
+        return returnUrl ? url + "?returnUrl=" + encodeURIComponent(returnUrl) : url;
     }
 
     function render(list) {
