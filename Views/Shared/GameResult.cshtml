@@ -1,5 +1,8 @@
+@using Vokabeln.AppLib.Extensions
 @using Vokabeln.ViewModels
 @model WordPlayResultViewModel
+
+@* Üç oyunun ortak sonuç ekranı. "Yeni oyun" linki, ekranı gösteren oyunun controller'ının Index'ine gider. *@
 
 @{
     var resultClass = Model.Percent >= 80 ? "theme-success"
@@ -10,7 +13,7 @@
 <div class="container mt-4">
 
     <div class="card shadow-sm mb-4">
-        <div class="card-header"><h4 class="mb-0">Sonuç</h4></div>
+        <div class="card-header"><h4 class="mb-0">Sonuç · @Model.Type.GetDescription()</h4></div>
         <div class="card-body">
 
             @if (Model.Answered == 0)

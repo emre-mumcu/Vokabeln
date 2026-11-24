@@ -12,7 +12,7 @@
     <div class="card shadow-sm">
 
         <div class="card-header">
-            <h4 class="mb-0">Add New Word</h4>
+            <h4 class="mb-0">@(Model.Id > 0 ? "Edit Word" : "Add New Word")</h4>
         </div>
 
         <div class="card-body">
@@ -39,6 +39,34 @@
                             <option value="">-- Seçiniz --</option>
                         </select>
                         <span asp-validation-for="WordType" class="fg-danger"></span>
+                    </div>
+                </div>
+
+                @* Fiil bilgileri: yalnızca tür "Verb" seçiliyken görünür *@
+                <div id="verbBox" @(Model.WordType == WordType.Verb ? "" : "hidden")>
+                    <div class="mb-3 row">
+                        <label asp-for="Auxiliary" class="sm:col-2 col-form-label">Hilfsverb</label>
+                        <div class="sm:col-10">
+                            <select asp-for="Auxiliary" class="form-control" asp-items="Html.GetEnumSelectList<AuxiliaryVerb>()">
+                                <option value="">-- Seçiniz --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3 row">
+                        <label asp-for="PartizipII" class="sm:col-2 col-form-label">Partizip II</label>
+                        <div class="sm:col-10">
+                            <input asp-for="PartizipII" class="form-control" placeholder="ör. gegangen" />
+                        </div>
+                    </div>
+
+                    <div class="mb-3 row">
+                        <div class="sm:col-10 sm:offset-2">
+                            <div class="form-check">
+                                <input asp-for="IsSeparable" class="form-check-input" />
+                                <label asp-for="IsSeparable" class="form-check-label">Ayrılabilir fiil (trennbar, ör. anfangen)</label>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -104,8 +132,19 @@
                     pluralRow.classList.add("d-none");
                     pluralInput.value = "";         // gizlenen alanda eski değer kalmasın
                 }
+
+                updateVerbBox(); // tür kodla değiştirildiğinde change olayı tetiklenmez
             }
 
+            // Fiil alanları yalnızca tür "Verb" iken görünür (kayıtta diğer türler için temizlenir)
+            const verbBox = document.getElementById("verbBox");
+            const verbValue = "@((int)WordType.Verb)";
+
+            function updateVerbBox() {
+                verbBox.hidden = typeSelect.value !== verbValue;
+            }
+
+            typeSelect.addEventListener("change", updateVerbBox);
             wordInput.addEventListener("input", updateByArticle);
             updateByArticle(); // sayfa açılışında (güncelleme modunda) da çalışsın
         })();

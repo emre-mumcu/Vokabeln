@@ -22,9 +22,18 @@
             <form asp-action="Index" method="get">
 
                 <div class="mb-3">
+                    <label asp-for="SelectedType" class="form-label">Kelime türü</label>
+                    <select asp-for="SelectedType" class="form-control" asp-items="Html.GetEnumSelectList<WordType>()">
+                        <option value="">Tümü</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
                     <label asp-for="Q" class="form-label">Aranacak metin</label>
-                    <input asp-for="Q" class="form-control" required autofocus autocomplete="off" />
-                    <small class="fg-secondary">Büyük/küçük harf fark etmez.</small>
+                    <input asp-for="Q" class="form-control" autofocus autocomplete="off" />
+                    <small class="fg-secondary">
+                        Büyük/küçük harf fark etmez. Boş bırakılırsa seçilen kelime türündeki tüm kelimeler listelenir.
+                    </small>
                 </div>
 
                 <div class="mb-3">

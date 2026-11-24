@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Vokabeln.AppData;
 using Vokabeln.AppData.Enums;
+using Vokabeln.AppLib.Extensions;
 using Vokabeln.ViewModels;
 
 namespace Vokabeln.AppLib.Services;
@@ -10,11 +11,12 @@ public class GameStatsService(AppDbContext dbContext) : IGameStatsService
     private const int RecentGameCount = 10;
     private const int MostMissedCount = 10;
 
-    public async Task<GameStatsViewModel> GetStatsAsync()
+    public async Task<GameStatsViewModel> GetStatsAsync(GameType type)
     {
         // Oyun bazlı istatistiklerde yalnızca bitirilmiş ve en az bir soru cevaplanmış oyunlar sayılır
         var finished = dbContext.Games
             .AsNoTracking()
+            .Where(x => x.Type == type)
             .Where(x => x.FinishedAt != null && x.AnsweredCount > 0);
 
         var gameCount = await finished.CountAsync();
@@ -27,15 +29,15 @@ public class GameStatsService(AppDbContext dbContext) : IGameStatsService
         var recentRaw = await finished
             .OrderByDescending(x => x.FinishedAt)
             .Take(RecentGameCount)
-            .Select(x => new { x.FinishedAt, x.WordType, x.Article, x.CorrectCount, x.AnsweredCount })
+            .Select(x => new { x.Type, x.FinishedAt, x.WordType, x.Article, x.Tense, x.CorrectCount, x.AnsweredCount })
             .ToListAsync();
 
         var recent = recentRaw
-            .Select(x => new GameSummary(x.FinishedAt!.Value, FilterText(x.WordType, x.Article), x.CorrectCount, x.AnsweredCount))
+            .Select(x => new GameSummary(x.FinishedAt!.Value, FilterText(x.Type, x.WordType, x.Article, x.Tense), x.CorrectCount, x.AnsweredCount))
             .ToList();
 
         // Cevap bazlı istatistikler (yarıda bırakılan oyunların cevapları da dahil)
-        var answers = dbContext.GameAnswers.AsNoTracking();
+        var answers = dbContext.GameAnswers.AsNoTracking().Where(x => x.Game!.Type == type);
 
         var answerCount = await answers.CountAsync();
         var correctCount = await answers.CountAsync(x => x.IsCorrect);
@@ -60,6 +62,7 @@ public class GameStatsService(AppDbContext dbContext) : IGameStatsService
 
         return new GameStatsViewModel
         {
+            Type = type,
             GameCount = gameCount,
             AnswerCount = answerCount,
             CorrectCount = correctCount,
@@ -76,8 +79,14 @@ public class GameStatsService(AppDbContext dbContext) : IGameStatsService
         return await dbContext.Games.ExecuteDeleteAsync();
     }
 
-    private static string FilterText(WordType? type, ArticleFilter article)
+    private static string FilterText(GameType gameType, WordType? type, ArticleFilter article, Tense? tense)
     {
+        if (gameType == GameType.Article)
+            return "İsimler";
+
+        if (gameType == GameType.Conjugation)
+            return tense?.GetDescription() ?? "-";
+
         if (type is null)
             return "Tümü";
 

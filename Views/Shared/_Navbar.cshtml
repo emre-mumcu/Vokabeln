@@ -16,7 +16,14 @@
                     <li class="nav-item"><a class="nav-link" asp-controller="Words" asp-action="Search"><i class="bi bi-funnel" aria-hidden="true"></i> Search</a></li>
                     <li class="nav-item"><a class="nav-link" asp-controller="Words" asp-action="Word"><i class="bi bi-plus-lg" aria-hidden="true"></i> New</a></li>
                     <li class="nav-item"><a class="nav-link" asp-controller="Words" asp-action="Print"><i class="bi bi-printer" aria-hidden="true"></i> Print</a></li>
-                    <li class="nav-item"><a class="nav-link" asp-controller="WordPlay" asp-action="Index"><i class="bi bi-controller" aria-hidden="true"></i> Play</a></li>
+                    <li class="nav-item">
+                        <button type="button" class="nav-link" data-bs-toggle="menu" aria-expanded="false"><i class="bi bi-controller" aria-hidden="true"></i> Play</button>
+                        <div class="menu">
+                            <a class="menu-item" asp-controller="WordPlay" asp-action="Index"><i class="bi bi-chat-square-text menu-item-icon" aria-hidden="true"></i> Anlam</a>
+                            <a class="menu-item" asp-controller="ArticlePlay" asp-action="Index"><i class="bi bi-tags menu-item-icon" aria-hidden="true"></i> Artikel</a>
+                            <a class="menu-item" asp-controller="ConjugationPlay" asp-action="Index"><i class="bi bi-keyboard menu-item-icon" aria-hidden="true"></i> Konjugation</a>
+                        </div>
+                    </li>
                     <li class="nav-item">
                         <button type="button" class="nav-link" data-bs-toggle="menu" aria-expanded="false"><i class="bi bi-tools" aria-hidden="true"></i> Tools</button>
                         <div class="menu">

@@ -1,0 +1,66 @@
+@using Vokabeln.AppData.Entities
+@using Vokabeln.AppData.Enums
+@using Vokabeln.AppLib.Extensions
+@using Vokabeln.ViewModels
+@model ConjugationFormViewModel
+
+@{
+    // İptal: kelimenin detay sayfası
+    var returnUrl = ViewData["ReturnUrl"] as string;
+    var backUrl = !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl)
+        ? returnUrl
+        : Url.Action("Details", "Words", new { id = Model.WordId })!;
+
+    // Zamana göre kısa yazım ipucu
+    var hint = Model.Tense switch
+    {
+        Tense.Perfekt => $"Yardımcı fiille birlikte yazın, ör. \"{(Model.Auxiliary == AuxiliaryVerb.Sein ? "bin gegangen" : "habe gemacht")}\".",
+        Tense.FuturI => "\"werden\" ile birlikte yazın, ör. \"werde gehen\".",
+        Tense.KonjunktivII => "ör. \"ginge\" ya da \"würde gehen\"; ikisi de doğruysa / ile ayırın.",
+        _ => "Yalnızca fiilin çekimli halini yazın, ör. \"gehe\"."
+    };
+}
+
+<div class="container mt-4">
+
+    <div class="card shadow-sm">
+
+        <div class="card-header">
+            <h4 class="mb-0">@Model.Tense.GetDescription() · <span class="fw-bold">@Model.Word</span></h4>
+        </div>
+
+        <div class="card-body">
+
+            <p class="fg-secondary">
+                @hint
+                Zamir yazmayın. Bir kişi için birden fazla doğru form varsa <code>/</code> ile ayırın (ör. <code>fragte / frug</code>).
+                Tüm alanları boşaltıp kaydederseniz bu zamanın çekimi silinir.
+            </p>
+
+            <form asp-action="Edit" method="post">
+                <input type="hidden" asp-for="WordId" />
+                <input type="hidden" asp-for="Tense" />
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+
+                @for (var i = 0; i < ConjugationBase.PersonLabels.Length; i++)
+                {
+                    <div class="mb-3 row">
+                        <label for="form@(i)" class="sm:col-2 col-form-label fw-bold">@ConjugationBase.PersonLabels[i]</label>
+                        <div class="sm:col-10">
+                            <input id="form@(i)" name="Forms[@i]" value="@Model.Forms.ElementAtOrDefault(i)" class="form-control"
+                                   autocomplete="off" spellcheck="false" @(i == 0 ? "autofocus" : "") />
+                        </div>
+                    </div>
+                }
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="@backUrl" class="btn-outline theme-secondary">İptal</a>
+                    <button type="submit" class="btn-solid theme-primary"><i class="bi bi-check-lg"></i> Kaydet</button>
+                </div>
+            </form>
+
+        </div>
+
+    </div>
+
+</div>

@@ -28,7 +28,7 @@
             @if (!Model.Answered)
             {
                 <form asp-action="Answer" method="post">
-                    <partial name="_State" model="Model.State" />
+                    <partial name="_GameState" model="Model.State" />
                     <input type="hidden" name="optionIds" value="@string.Join(",", Model.Options.Select(x => x.Id))" />
 
                     <div class="mb-4">
@@ -42,10 +42,11 @@
                         }
                     </div>
 
-                    <div class="d-flex justify-content-end gap-2">
+                    @* Enter'a basınca DOM'daki ilk submit butonu çalışır: Cevapla önce yazılır, flex-row-reverse ile solda Bitir görünür *@
+                    <div class="d-flex flex-row-reverse gap-2">
+                        <button type="submit" class="btn-solid theme-primary">Cevapla</button>
                         @* Aynı formu Finish'e gönderir; şık seçmek gerekmez *@
                         <button type="submit" asp-action="Finish" formnovalidate class="btn-outline theme-secondary">Bitir</button>
-                        <button type="submit" class="btn-solid theme-primary">Cevapla</button>
                     </div>
                 </form>
             }
@@ -81,7 +82,7 @@
                 }
 
                 <form asp-action="Next" method="post">
-                    <partial name="_State" model="@(new WordPlayState { GameId = Model.State.GameId, WordIds = Model.State.WordIds, Index = Model.State.Index + 1 })" />
+                    <partial name="_GameState" model="@(new WordPlayState { GameId = Model.State.GameId, WordIds = Model.State.WordIds, Index = Model.State.Index + 1 })" />
 
                     <div class="d-flex justify-content-end gap-2">
                         @if (!Model.IsLast)

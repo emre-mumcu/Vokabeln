@@ -1,7 +1,12 @@
+@using Vokabeln.AppData.Entities
+@using Vokabeln.AppData.Enums
 @using Vokabeln.AppLib.Extensions
-@model Vokabeln.AppData.Entities.WordEntity
+@using Vokabeln.ViewModels
+@model WordDetailsViewModel
 
 @{
+    var word = Model.Word;
+
     // Geri: gelinen liste/arama sayfası; yoksa kelime listesi
     var returnUrl = ViewData["ReturnUrl"] as string;
     var backUrl = !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Action("Index")!;
@@ -9,48 +14,61 @@
     // Düzenleme kaydedilince bu detay sayfasına geri dönülür
     var detailsUrl = $"{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
 
+    var isVerb = word.WordType == WordType.Verb;
 }
 
 <div class="container mt-4">
 
-    <div class="card shadow-sm">
+    <div class="card shadow-sm mb-4">
 
         <div class="card-header d-flex justify-content-between align-items-center">
-            <span class="badge theme-secondary">@Model.WordType.GetDescription()</span>
-            <span class="fg-secondary text-sm">#@Model.Id</span>
+            <span class="badge theme-secondary">@word.WordType.GetDescription()</span>
+            <span class="fg-secondary text-sm">#@word.Id</span>
         </div>
 
         <div class="card-body">
 
-            <h1 class="text-4xl fw-bold text-break mb-1 @Model.Word.ArticleColorClass()">@Model.Word</h1>
+            <h1 class="text-4xl fw-bold text-break mb-1 @word.Word.ArticleColorClass()">@word.Word</h1>
 
-            @if (!string.IsNullOrWhiteSpace(Model.Plural))
+            @if (!string.IsNullOrWhiteSpace(word.Plural))
             {
                 <p class="text-lg fg-secondary mb-0">
-                    <span class="text-sm text-uppercase">Çoğul</span> · @Model.Plural
+                    <span class="text-sm text-uppercase">Çoğul</span> · @word.Plural
+                </p>
+            }
+
+            @if (isVerb)
+            {
+                <p class="text-lg fg-secondary mb-0 d-flex flex-wrap gap-3">
+                    <span><span class="text-sm text-uppercase">Hilfsverb</span> · @(word.Auxiliary?.GetDescription() ?? "-")</span>
+                    <span><span class="text-sm text-uppercase">Partizip II</span> · @(word.PartizipII ?? "-")</span>
+                    @if (word.IsSeparable)
+                    {
+                        <span class="badge theme-info">trennbar</span>
+                    }
                 </p>
             }
 
             <hr />
 
             <h6 class="text-sm text-uppercase fg-secondary mb-1">Anlam</h6>
-            @if (string.IsNullOrWhiteSpace(Model.Meaning))
+            @if (string.IsNullOrWhiteSpace(word.Meaning))
             {
                 <p class="fst-italic fg-secondary">Anlam girilmemiş.</p>
             }
             else
             {
-                <p class="text-xl text-break">@Model.Meaning</p>
+                <p class="text-xl text-break">@word.Meaning</p>
             }
 
             <h6 class="text-sm text-uppercase fg-secondary mb-1">Örnek</h6>
-            @if (string.IsNullOrWhiteSpace(Model.Sample))
+            @if (string.IsNullOrWhiteSpace(word.Sample))
             {
                 <p class="fst-italic fg-secondary mb-0">Örnek cümle girilmemiş.</p>
             }
             else
             {
-                <p class="fst-italic text-lg text-break border-start ps-3 mb-0">@Model.Sample</p>
+                <p class="fst-italic text-lg text-break border-start ps-3 mb-0">@word.Sample</p>
             }
 
         </div>
@@ -60,11 +78,11 @@
             <a href="@backUrl" class="btn-outline theme-secondary"><i class="bi bi-arrow-left"></i> Geri</a>
 
             <div class="d-flex gap-2">
-                <a asp-action="Word" asp-route-id="@Model.Id" asp-route-returnUrl="@detailsUrl" class="btn-solid theme-primary">
+                <a asp-action="Word" asp-route-id="@word.Id" asp-route-returnUrl="@detailsUrl" class="btn-solid theme-primary">
                     <i class="bi bi-pencil-square"></i> Edit
                 </a>
 
-                <form asp-action="Delete" asp-route-id="@Model.Id" method="post">
+                <form asp-action="Delete" asp-route-id="@word.Id" method="post">
                     @* Silinen kelimenin detay sayfası artık olmayacağı için listeye dönülür *@
                     <input type="hidden" name="returnUrl" value="@backUrl" />
                     <button type="submit" class="btn-solid theme-danger"
@@ -77,5 +95,68 @@
         </div>
 
     </div>
+
+    @if (isVerb)
+    {
+        <h4 class="mb-3">Konjugation</h4>
+
+        <div class="row g-3 mb-4">
+            @foreach (var tense in Enum.GetValues<Tense>())
+            {
+                var conjugation = Model.Conjugations.GetValueOrDefault(tense);
+                var forms = conjugation?.GetForms();
+
+                <div class="md:col-6 lg:col-4">
+                    <div class="card shadow-sm h-100">
+
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">@tense.GetDescription()</h5>
+
+                            @if (conjugation is not null)
+                            {
+                                <span class="d-flex gap-1">
+                                    <a asp-controller="Conjugations" asp-action="Edit" asp-route-wordId="@word.Id" asp-route-tense="@tense" asp-route-returnUrl="@detailsUrl"
+                                       class="btn-text theme-accent" title="Düzenle"><i class="bi bi-pencil-square"></i></a>
+
+                                    <form asp-controller="Conjugations" asp-action="Delete" asp-route-wordId="@word.Id" asp-route-tense="@tense" method="post" class="d-inline">
+                                        <input type="hidden" name="returnUrl" value="@detailsUrl" />
+                                        <button type="submit" class="btn-text theme-danger" title="Sil"
+                                                data-confirm="@($"{tense.GetDescription()} çekimi silinecek. Emin misiniz?")">
+                                            <i class="bi bi-trash3"></i>
+                                        </button>
+                                    </form>
+                                </span>
+                            }
+                        </div>
+
+                        <div class="card-body">
+                            @if (forms is null)
+                            {
+                                <a asp-controller="Conjugations" asp-action="Edit" asp-route-wordId="@word.Id" asp-route-tense="@tense" asp-route-returnUrl="@detailsUrl"
+                                   class="btn-outline theme-primary w-100">
+                                    <i class="bi bi-plus-lg"></i> @tense.GetDescription() çekimi ekle
+                                </a>
+                            }
+                            else
+                            {
+                                <table class="table table-sm mb-0">
+                                    <tbody>
+                                        @for (var i = 0; i < ConjugationBase.PersonLabels.Length; i++)
+                                        {
+                                            <tr>
+                                                <th class="fg-secondary fw-normal text-nowrap">@ConjugationBase.PersonLabels[i]</th>
+                                                <td class="text-break">@(forms[i] ?? "-")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                        </div>
+
+                    </div>
+                </div>
+            }
+        </div>
+    }
 
 </div>

@@ -38,13 +38,15 @@ namespace Vokabeln.ViewModels
 		public bool IsCorrect => SelectedOptionId == Word.Id; // Doğru şık, kelimenin kendi anlamıdır
 	}
 
+	// Üç oyunun ortak sonucu (Views/Shared/GameResult)
 	public class WordPlayResultViewModel
 	{
+		public GameType Type { get; init; }
 		public int Score { get; init; }
 		public int Answered { get; init; }
 		public int QuestionCount { get; init; }
 
-		// Bu oyun dahil tüm oyunların istatistikleri
+		// Bu oyun dahil, aynı türdeki tüm oyunların istatistikleri
 		public GameStatsViewModel Stats { get; init; } = new();
 
 		public int Percent => Answered == 0 ? 0 : (int)Math.Round(100.0 * Score / Answered);

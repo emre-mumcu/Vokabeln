@@ -7,25 +7,23 @@ using Vokabeln.ViewModels;
 
 namespace Vokabeln.AppLib.Services;
 
-public class WordPlayService(AppDbContext dbContext, IGameStatsService gameStatsService) : IWordPlayService
+// Anlam oyunu: kelimenin anlamı 4 şıktan seçilir
+public class WordPlayService(AppDbContext dbContext, IGameStatsService gameStatsService)
+    : GameServiceBase(dbContext, gameStatsService), IWordPlayService
 {
-    private const int MinQuestions = 1;
-    private const int MaxQuestions = 100;
     private const int OptionCount = 4;
 
     public async Task<WordPlayState> StartAsync(int questionCount, WordType? type, ArticleFilter article)
     {
-        questionCount = Math.Clamp(questionCount, MinQuestions, MaxQuestions);
-
         var ids = await Playable(type, article)
             .Select(x => x.Id)
-            .ToArrayAsync();
+            .ToListAsync();
 
-        if (ids.Length == 0)
+        if (ids.Count == 0)
             throw new AppException("Seçilen filtreye uygun, anlamı girilmiş kelime bulunamadı.");
 
         // Şık üretebilmek için en az iki farklı anlam gerekir
-        var meaningCount = await WithMeaning(dbContext.Words.AsNoTracking())
+        var meaningCount = await WithMeaning(Db.Words.AsNoTracking())
             .Select(x => x.Meaning)
             .Distinct()
             .Take(2)
@@ -34,27 +32,14 @@ public class WordPlayService(AppDbContext dbContext, IGameStatsService gameStats
         if (meaningCount < 2)
             throw new AppException("Oyun için anlamı farklı en az 2 kelime gerekli.");
 
-        Random.Shared.Shuffle(ids);
-
-        var wordIds = ids.Take(questionCount).ToList();
-
         var game = new GameEntity
         {
-            StartedAt = DateTime.Now,
+            Type = GameType.Meaning,
             WordType = type,
-            Article = type == WordType.Noun ? article : ArticleFilter.All,
-            QuestionCount = wordIds.Count
+            Article = type == WordType.Noun ? article : ArticleFilter.All
         };
 
-        dbContext.Games.Add(game);
-        await dbContext.SaveChangesAsync();
-
-        return new WordPlayState
-        {
-            GameId = game.Id,
-            WordIds = string.Join(",", wordIds),
-            Index = 0
-        };
+        return await CreateGameAsync(game, ids, questionCount);
     }
 
     public async Task<WordPlayQuestionViewModel?> GetQuestionAsync(WordPlayState state)
@@ -86,7 +71,7 @@ public class WordPlayService(AppDbContext dbContext, IGameStatsService gameStats
         // Soruda gösterilen şıklar aynı sırayla yeniden kurulur
         var ids = ParseIds(optionIds);
 
-        var meanings = await dbContext.Words
+        var meanings = await Db.Words
             .AsNoTracking()
             .Where(x => ids.Contains(x.Id))
             .Select(x => new { x.Id, x.Meaning })
@@ -101,26 +86,12 @@ public class WordPlayService(AppDbContext dbContext, IGameStatsService gameStats
         if (!options.Any(x => x.Id == word.Id))
             options = await BuildOptionsAsync(word);
 
-        // Soru daha önce cevaplandıysa (sayfa yenileme, geri tuşu) ilk cevap geçerlidir
-        var answer = await dbContext.GameAnswers
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.GameId == game.Id && x.WordId == word.Id);
-
-        // Bitmiş bir oyuna yeni cevap yazılmaz
-        if (answer is null && game.FinishedAt is null)
+        var answer = await SaveAnswerAsync(game, new GameAnswerEntity
         {
-            answer = new GameAnswerEntity
-            {
-                GameId = game.Id,
-                WordId = word.Id,
-                SelectedWordId = selectedId,
-                IsCorrect = selectedId == word.Id, // Doğru şık, kelimenin kendi anlamıdır
-                AnsweredAt = DateTime.Now
-            };
-
-            dbContext.GameAnswers.Add(answer);
-            await dbContext.SaveChangesAsync();
-        }
+            WordId = word.Id,
+            SelectedWordId = selectedId,
+            IsCorrect = selectedId == word.Id // Doğru şık, kelimenin kendi anlamıdır
+        });
 
         return new WordPlayQuestionViewModel
         {
@@ -134,44 +105,9 @@ public class WordPlayService(AppDbContext dbContext, IGameStatsService gameStats
         };
     }
 
-    public async Task<WordPlayResultViewModel> FinishAsync(WordPlayState state)
-    {
-        var game = await dbContext.Games.FirstOrDefaultAsync(x => x.Id == state.GameId)
-            ?? throw new KeyNotFoundException("Oyun bulunamadı (istatistikler sıfırlanmış olabilir).");
-
-        // Sonuç sayfası yenilense de oyun bir kez bitirilir
-        if (game.FinishedAt is null)
-        {
-            game.AnsweredCount = await dbContext.GameAnswers.CountAsync(x => x.GameId == game.Id);
-            game.CorrectCount = await ScoreAsync(game.Id);
-            game.FinishedAt = DateTime.Now;
-
-            // Hiç cevap verilmeden bitirilen oyun istatistiklere girmez
-            if (game.AnsweredCount == 0)
-                dbContext.Games.Remove(game);
-
-            await dbContext.SaveChangesAsync();
-        }
-
-        return new WordPlayResultViewModel
-        {
-            Score = game.CorrectCount,
-            Answered = game.AnsweredCount,
-            QuestionCount = game.QuestionCount,
-            Stats = await gameStatsService.GetStatsAsync()
-        };
-    }
-
-    private async Task<GameEntity> GetGameAsync(int gameId)
-        => await dbContext.Games.AsNoTracking().FirstOrDefaultAsync(x => x.Id == gameId)
-            ?? throw new KeyNotFoundException("Oyun bulunamadı (istatistikler sıfırlanmış olabilir).");
-
-    private Task<int> ScoreAsync(int gameId)
-        => dbContext.GameAnswers.CountAsync(x => x.GameId == gameId && x.IsCorrect);
-
     private IQueryable<WordEntity> Playable(WordType? type, ArticleFilter article)
     {
-        var query = WithMeaning(dbContext.Words.AsNoTracking());
+        var query = WithMeaning(Db.Words.AsNoTracking());
 
         if (type is not null)
             query = query.Where(x => x.WordType == type.Value);
@@ -189,27 +125,11 @@ public class WordPlayService(AppDbContext dbContext, IGameStatsService gameStats
     private static IQueryable<WordEntity> WithMeaning(IQueryable<WordEntity> query)
         => query.Where(x => x.Meaning != null && x.Meaning != "");
 
-    private async Task<(WordEntity? Word, int Total)> GetCurrentWordAsync(WordPlayState state)
-    {
-        var ids = ParseIds(state.WordIds);
-
-        // Sorular bitti
-        if (state.Index < 0 || state.Index >= ids.Count)
-            return (null, ids.Count);
-
-        var word = await dbContext.Words
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == ids[state.Index])
-            ?? throw new KeyNotFoundException("Sorudaki kelime bulunamadı (oyun sırasında silinmiş olabilir).");
-
-        return (word, ids.Count);
-    }
-
     private async Task<List<QuizOption>> BuildOptionsAsync(WordEntity word)
     {
         var correct = word.Meaning?.Trim() ?? "";
 
-        var pool = await WithMeaning(dbContext.Words.AsNoTracking())
+        var pool = await WithMeaning(Db.Words.AsNoTracking())
             .Where(x => x.Id != word.Id)
             .Select(x => new { x.Id, x.Meaning, x.WordType })
             .ToListAsync();
@@ -230,11 +150,4 @@ public class WordPlayService(AppDbContext dbContext, IGameStatsService gameStats
 
         return options.ToList();
     }
-
-    private static List<int> ParseIds(string? csv)
-        => (csv ?? "")
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(x => int.TryParse(x, out var id) ? id : 0)
-            .Where(id => id > 0)
-            .ToList();
 }

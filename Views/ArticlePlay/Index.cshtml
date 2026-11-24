@@ -1,0 +1,35 @@
+@using Vokabeln.ViewModels
+@model ArticlePlaySetupViewModel
+
+<div class="container mt-4">
+
+    <div class="card shadow-sm">
+        <div class="card-header"><h4 class="mb-0">Artikel Play</h4></div>
+        <div class="card-body">
+
+            <p class="fg-secondary">
+                İsmin artikelini bul: <span class="fg-primary fw-bold">der</span>, <span class="fg-danger fw-bold">die</span> ya da <span class="fg-success fw-bold">das</span>.
+                Yalnızca artikeliyle kaydedilmiş isimler sorulur (ör. "der Tisch").
+            </p>
+
+            <form asp-action="Start" method="post">
+
+                <div class="mb-3">
+                    <label asp-for="QuestionCount" class="form-label">Soru sayısı</label>
+                    <select asp-for="QuestionCount" class="form-control">
+                        @foreach (var count in new[] { 5, 10, 20, 30, 50 })
+                        {
+                            <option value="@count">@count</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="submit" class="btn-solid theme-primary"><i class="bi bi-play-fill"></i> Başla</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+</div>

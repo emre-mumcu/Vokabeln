@@ -1,0 +1,90 @@
+@using Vokabeln.AppLib.Extensions
+@using Vokabeln.ViewModels
+@model ArticleQuestionViewModel
+
+@{
+    // Artikel butonları, listede ve detayda kullanılan renklerle: der mavi, die kırmızı, das yeşil
+    var articles = new (string Article, string Theme)[] { ("der", "theme-primary"), ("die", "theme-danger"), ("das", "theme-success") };
+}
+
+<div class="container mt-4">
+
+    <div class="card shadow-sm">
+
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Soru @Model.Number / @Model.Total</h4>
+            <span class="fg-secondary">Puan: @Model.Score</span>
+        </div>
+
+        <div class="card-body text-center">
+
+            @if (!Model.Answered)
+            {
+                <h2 class="text-4xl fw-bold mb-1">@Model.Noun</h2>
+
+                @if (!string.IsNullOrWhiteSpace(Model.Word.Meaning))
+                {
+                    <p class="fg-secondary mb-4">@Model.Word.Meaning</p>
+                }
+
+                <form asp-action="Answer" method="post">
+                    <partial name="_GameState" model="Model.State" />
+
+                    <div class="d-flex justify-content-center gap-3 mb-4">
+                        @foreach (var (article, theme) in articles)
+                        {
+                            <button type="submit" name="article" value="@article" class="btn-outline @theme btn-lg">@article</button>
+                        }
+                    </div>
+
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" asp-action="Finish" class="btn-outline theme-secondary">Bitir</button>
+                    </div>
+                </form>
+            }
+            else
+            {
+                <h2 class="text-4xl fw-bold mb-1 @Model.Word.Word.ArticleColorClass()">@Model.Word.Word</h2>
+
+                @if (!string.IsNullOrWhiteSpace(Model.Word.Meaning))
+                {
+                    <p class="fg-secondary mb-1">@Model.Word.Meaning</p>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Model.Word.Plural))
+                {
+                    <p class="fg-secondary mb-3"><span class="text-sm text-uppercase">Çoğul</span> · @Model.Word.Plural</p>
+                }
+
+                @if (Model.IsCorrect)
+                {
+                    <div class="alert theme-success"><i class="bi bi-check-lg"></i> <strong>Doğru!</strong></div>
+                }
+                else
+                {
+                    <div class="alert theme-danger">
+                        <i class="bi bi-x-lg"></i> <strong>Yanlış.</strong>
+                        Senin cevabın <strong>@Model.SelectedArticle</strong>, doğrusu <strong>@Model.CorrectArticle</strong>.
+                    </div>
+                }
+
+                <form asp-action="Next" method="post">
+                    <partial name="_GameState" model="@(new WordPlayState { GameId = Model.State.GameId, WordIds = Model.State.WordIds, Index = Model.State.Index + 1 })" />
+
+                    <div class="d-flex justify-content-end gap-2">
+                        @if (!Model.IsLast)
+                        {
+                            <button type="submit" asp-action="Finish" class="btn-outline theme-secondary">Bitir</button>
+                        }
+                        <button type="submit" class="btn-solid theme-primary" autofocus>
+                            @(Model.IsLast ? "Sonucu gör" : "Sonraki soru")
+                        </button>
+                    </div>
+                </form>
+            }
+
+        </div>
+
+    </div>
+
+</div>

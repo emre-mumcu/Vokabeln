@@ -11,8 +11,11 @@ public class GameConfig : IEntityTypeConfiguration<GameEntity>
 
         builder.Property(x => x.WordType).HasConversion<int?>();
         builder.Property(x => x.Article).HasConversion<int>();
+        builder.Property(x => x.Type).HasConversion<int>(); // Mevcut kayıtlar 0 = Meaning (anlam oyunu) olur
+        builder.Property(x => x.Tense).HasConversion<int?>();
 
         builder.HasIndex(x => x.FinishedAt);
+        builder.HasIndex(x => x.Type);
 
         builder.HasMany(x => x.Answers)
             .WithOne(x => x.Game)

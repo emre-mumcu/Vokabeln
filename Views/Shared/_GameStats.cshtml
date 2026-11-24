@@ -1,10 +1,11 @@
+@using Vokabeln.AppLib.Extensions
 @using Vokabeln.ViewModels
 @model GameStatsViewModel
 
-@* Oyun istatistikleri: WordPlay/Result ve Admin/Index sayfalarında kullanılır *@
+@* Oyun istatistikleri: GameResult ve Admin/Index sayfalarında kullanılır *@
 
 <div class="card shadow-sm mb-4">
-    <div class="card-header"><h4 class="mb-0">Genel istatistikler</h4></div>
+    <div class="card-header"><h4 class="mb-0">Genel istatistikler · @Model.Type.GetDescription()</h4></div>
     <div class="card-body">
         @if (Model.GameCount == 0 && Model.AnswerCount == 0)
         {

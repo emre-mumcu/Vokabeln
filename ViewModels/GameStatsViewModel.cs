@@ -1,3 +1,5 @@
+using Vokabeln.AppData.Enums;
+
 namespace Vokabeln.ViewModels
 {
 	public record GameSummary(DateTime FinishedAt, string Filter, int Correct, int Answered)
@@ -9,6 +11,8 @@ namespace Vokabeln.ViewModels
 
 	public class GameStatsViewModel
 	{
+		public GameType Type { get; init; }
+
 		public int GameCount { get; init; }
 		public int AnswerCount { get; init; }
 		public int CorrectCount { get; init; }

@@ -65,6 +65,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IWordService, WordService>();
 builder.Services.AddScoped<IWordPlayService, WordPlayService>();
 builder.Services.AddScoped<IGameStatsService, GameStatsService>();
+builder.Services.AddScoped<IConjugationService, ConjugationService>();
+builder.Services.AddScoped<IArticlePlayService, ArticlePlayService>();
+builder.Services.AddScoped<IConjugationPlayService, ConjugationPlayService>();
 
 ///
 /// Bu noktadan sonra servis kaydı biter (artık builder.Services'e ekleme yapılmaz), 

@@ -1,10 +1,14 @@
 using Vokabeln.AppData.Enums;
+using Vokabeln.AppLib.Extensions;
 
 namespace Vokabeln.ViewModels
 {
 	// Navbar'daki hızlı arama yalnızca Q gönderir; diğer alanlar varsayılan değerleriyle (kelime + anlam, içinde geçen) kalır
 	public class WordSearch
 	{
+		// Kelime türü filtresi (null = tümü). Metin girilmezse seçilen türün tüm kelimeleri listelenir.
+		public WordType? SelectedType { get; set; }
+
 		public string? Q { get; set; }
 
 		public bool InWord { get; set; } = true;
@@ -17,7 +21,10 @@ namespace Vokabeln.ViewModels
 		// Kelime ve çoğul alanlarında baştaki der/die/das yok sayılır ("der Tisch" -> "Tisch")
 		public bool IgnoreArticle { get; set; }
 
-		public bool IsActive => !string.IsNullOrWhiteSpace(Q);
+		public bool HasText => !string.IsNullOrWhiteSpace(Q);
+
+		// Metin ya da kelime türü seçildiyse arama yapılır
+		public bool IsActive => HasText || SelectedType is not null;
 
 		// Hiç alan seçilmediyse kelime ve anlamda aranır
 		public bool NoFieldSelected => !InWord && !InMeaning && !InPlural && !InSample;
@@ -25,6 +32,7 @@ namespace Vokabeln.ViewModels
 		// Arama ekranına aynı değerlerle dönmek için
 		public Dictionary<string, string> ToRouteValues() => new()
 		{
+			[nameof(SelectedType)] = SelectedType?.ToString() ?? "",
 			[nameof(Q)] = Q ?? "",
 			[nameof(InWord)] = InWord.ToString(),
 			[nameof(InMeaning)] = InMeaning.ToString(),
@@ -34,8 +42,21 @@ namespace Vokabeln.ViewModels
 			[nameof(IgnoreArticle)] = IgnoreArticle.ToString()
 		};
 
-		// Liste ve yazdırma sayfalarındaki özet: "tisch" · Kelime, Anlam · içinde geçen · artikelsiz
+		// Liste ve yazdırma sayfalarındaki özet: das Nomen · "tisch" · Kelime, Anlam · içinde geçen · artikelsiz
 		public string Describe()
+		{
+			var parts = new List<string>();
+
+			if (SelectedType is { } type)
+				parts.Add(HasText ? type.GetDescription() : $"Tüm kelimeler: {type.GetDescription()}");
+
+			if (HasText)
+				parts.Add(DescribeText());
+
+			return string.Join(" · ", parts);
+		}
+
+		private string DescribeText()
 		{
 			var fields = new List<string>();
 			if (InWord || NoFieldSelected) fields.Add("Kelime");

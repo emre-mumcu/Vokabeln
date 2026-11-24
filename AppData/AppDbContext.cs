@@ -23,6 +23,44 @@ public class AppDbContext : DbContext
     public DbSet<GameEntity> Games => Set<GameEntity>();
     public DbSet<GameAnswerEntity> GameAnswers => Set<GameAnswerEntity>();
 
+    // Fiil çekimleri: her zaman ayrı tabloda
+    public DbSet<PraesensEntity> Praesens => Set<PraesensEntity>();
+    public DbSet<PraeteritumEntity> Praeteritum => Set<PraeteritumEntity>();
+    public DbSet<PerfektEntity> Perfekt => Set<PerfektEntity>();
+    public DbSet<FuturIEntity> FuturI => Set<FuturIEntity>();
+    public DbSet<KonjunktivIIEntity> KonjunktivII => Set<KonjunktivIIEntity>();
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        StampWords();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        StampWords();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    // Kelimelerin oluşturma/güncelleme tarihleri (UTC). Import'ta dosyadaki tarihler varsa korunur.
+    private void StampWords()
+    {
+        var now = DateTime.UtcNow;
+
+        foreach (var entry in ChangeTracker.Entries<WordEntity>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                if (entry.Entity.CreatedAt == default) entry.Entity.CreatedAt = now;
+                if (entry.Entity.UpdatedAt == default) entry.Entity.UpdatedAt = now;
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Entity.UpdatedAt = now;
+            }
+        }
+    }
+
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

@@ -1,0 +1,107 @@
+@using Vokabeln.AppData.Enums
+@using Vokabeln.AppLib.Extensions
+@using Vokabeln.ViewModels
+@model ConjugationQuestionViewModel
+
+<div class="container mt-4">
+
+    <div class="card shadow-sm">
+
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Soru @Model.Number / @Model.Total</h4>
+            <span class="fg-secondary">Puan: @Model.Score</span>
+        </div>
+
+        <div class="card-body">
+
+            <p class="mb-1"><span class="badge theme-info">@Model.Tense.GetDescription()</span></p>
+            <h2 class="text-4xl fw-bold mb-1">@Model.Word.Word</h2>
+            <p class="fg-secondary mb-4">
+                @Model.Word.Meaning
+                @if (Model.Tense == Tense.Perfekt && Model.Word.Auxiliary is not null)
+                {
+                    <span> · Hilfsverb: @Model.Word.Auxiliary.Value.GetDescription()</span>
+                }
+            </p>
+
+            @if (!Model.Answered)
+            {
+                <form asp-action="Answer" method="post">
+                    <partial name="_GameState" model="Model.State" />
+
+                    @foreach (var row in Model.Rows)
+                    {
+                        <div class="mb-3 row">
+                            <label for="form@(row.Index)" class="sm:col-2 col-form-label fw-bold">@row.Label</label>
+                            <div class="sm:col-10">
+                                <input id="form@(row.Index)" name="forms[@row.Index]" class="form-control"
+                                       autocomplete="off" autocapitalize="off" spellcheck="false"
+                                       @(row == Model.Rows[0] ? "autofocus" : "") />
+                            </div>
+                        </div>
+                    }
+
+                    @* Enter'a basınca DOM'daki ilk submit butonu çalışır: Kontrol et önce yazılır, flex-row-reverse ile solda Bitir görünür *@
+                    <div class="d-flex flex-row-reverse gap-2">
+                        <button type="submit" class="btn-solid theme-primary">Kontrol et</button>
+                        @* Aynı formu Finish'e gönderir *@
+                        <button type="submit" asp-action="Finish" class="btn-outline theme-secondary">Bitir</button>
+                    </div>
+                </form>
+            }
+            else
+            {
+                <table class="table align-middle mb-3">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Senin cevabın</th>
+                            <th>Doğrusu</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.Rows)
+                        {
+                            <tr>
+                                <th class="text-nowrap">@row.Label</th>
+                                <td class="@(row.IsCorrect ? "fg-success" : "fg-danger")">
+                                    <i class="bi @(row.IsCorrect ? "bi-check-lg" : "bi-x-lg")" aria-hidden="true"></i>
+                                    @(string.IsNullOrWhiteSpace(row.Given) ? "(boş)" : row.Given)
+                                </td>
+                                <td>@row.Expected</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                @if (Model.IsCorrect)
+                {
+                    <div class="alert theme-success"><i class="bi bi-check-lg"></i> <strong>Hepsi doğru!</strong></div>
+                }
+                else
+                {
+                    <div class="alert theme-danger">
+                        <i class="bi bi-x-lg"></i> <strong>@Model.Rows.Count(x => !x.IsCorrect) / @Model.Rows.Count</strong> çekim yanlış.
+                    </div>
+                }
+
+                <form asp-action="Next" method="post">
+                    <partial name="_GameState" model="@(new WordPlayState { GameId = Model.State.GameId, WordIds = Model.State.WordIds, Index = Model.State.Index + 1 })" />
+
+                    <div class="d-flex justify-content-end gap-2">
+                        @if (!Model.IsLast)
+                        {
+                            <button type="submit" asp-action="Finish" class="btn-outline theme-secondary">Bitir</button>
+                        }
+                        <button type="submit" class="btn-solid theme-primary" autofocus>
+                            @(Model.IsLast ? "Sonucu gör" : "Sonraki soru")
+                        </button>
+                    </div>
+                </form>
+            }
+
+        </div>
+
+    </div>
+
+</div>

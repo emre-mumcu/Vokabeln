@@ -37,8 +37,24 @@ public class WordService(AppDbContext dbContext) : IWordService
             target.Plural = entity.Plural;
             target.Meaning = entity.Meaning;
             target.Sample = entity.Sample;
+            target.Auxiliary = entity.Auxiliary;
+            target.PartizipII = entity.PartizipII;
+            target.IsSeparable = entity.IsSeparable;
         }
 
+        // Fiil bilgileri yalnızca fiillerde tutulur
+        if (target.WordType != WordType.Verb)
+        {
+            target.Auxiliary = null;
+            target.PartizipII = null;
+            target.IsSeparable = false;
+        }
+        else
+        {
+            target.PartizipII = string.IsNullOrWhiteSpace(target.PartizipII) ? null : target.PartizipII.Trim();
+        }
+
+        // CreatedAt/UpdatedAt AppDbContext tarafından doldurulur
         await dbContext.SaveChangesAsync();
         return target;
     }
@@ -95,6 +111,13 @@ public class WordService(AppDbContext dbContext) : IWordService
 
     private static IQueryable<WordEntity> ApplySearch(IQueryable<WordEntity> query, WordSearch search)
     {
+        if (search.SelectedType is { } type)
+            query = query.Where(x => x.WordType == type);
+
+        // Metin girilmediyse yalnızca tür filtresi uygulanır (seçilen türün tüm kelimeleri)
+        if (!search.HasText)
+            return query;
+
         var text = EscapeLike(search.Q!.Trim());
 
         var pattern = search.Mode switch
@@ -146,7 +169,7 @@ public class WordService(AppDbContext dbContext) : IWordService
             .ToListAsync();
     }
 
-    public async Task<ImportResult> ImportAsync(IEnumerable<WordEntity> words, ImportMode mode)
+    public async Task<ImportResult> ImportAsync(IEnumerable<WordExport> words, ImportMode mode)
     {
         var existing = (await dbContext.Words
             .AsNoTracking()
@@ -188,15 +211,7 @@ public class WordService(AppDbContext dbContext) : IWordService
                 continue;
             }
 
-            candidates.Add(new WordEntity
-            {
-                Id = 0,
-                Word = word,
-                WordType = w.WordType,
-                Plural = w.Plural?.Trim(),
-                Meaning = w.Meaning?.Trim(),
-                Sample = w.Sample?.Trim()
-            });
+            candidates.Add(FromExport(w, word));
         }
 
         // 2) Kaydetme
@@ -242,6 +257,110 @@ public class WordService(AppDbContext dbContext) : IWordService
         }
 
         return new ImportResult(added, skipped, failed);
+    }
+
+    // Export: tüm kelimeler, fiil bilgileri, tarihler ve girilmiş çekimlerle
+    public async Task<List<WordExport>> GetForExportAsync()
+    {
+        var words = await dbContext.Words
+            .AsNoTracking()
+            .Include(x => x.Praesens)
+            .Include(x => x.Praeteritum)
+            .Include(x => x.Perfekt)
+            .Include(x => x.FuturI)
+            .Include(x => x.KonjunktivII)
+            .OrderBy(x => x.Word)
+            .ToListAsync();
+
+        return words.Select(ToExport).ToList();
+    }
+
+    private static WordExport ToExport(WordEntity w)
+    {
+        var conjugations = ConjugationsOf(w)
+            .Where(x => x.Value is { HasAnyForm: true })
+            .ToDictionary(x => x.Key, x => new ConjugationExport
+            {
+                Ich = x.Value!.Ich,
+                Du = x.Value.Du,
+                ErSieEs = x.Value.ErSieEs,
+                Wir = x.Value.Wir,
+                Ihr = x.Value.Ihr,
+                SieSie = x.Value.SieSie
+            });
+
+        return new WordExport
+        {
+            Word = w.Word,
+            WordType = w.WordType,
+            Plural = w.Plural,
+            Meaning = w.Meaning,
+            Sample = w.Sample,
+            Auxiliary = w.Auxiliary,
+            PartizipII = w.PartizipII,
+            IsSeparable = w.IsSeparable,
+            CreatedAt = w.CreatedAt,
+            UpdatedAt = w.UpdatedAt,
+            Conjugations = conjugations.Count > 0 ? conjugations : null
+        };
+    }
+
+    private static Dictionary<Tense, ConjugationBase?> ConjugationsOf(WordEntity w) => new()
+    {
+        [Tense.Praesens] = w.Praesens,
+        [Tense.Praeteritum] = w.Praeteritum,
+        [Tense.Perfekt] = w.Perfekt,
+        [Tense.FuturI] = w.FuturI,
+        [Tense.KonjunktivII] = w.KonjunktivII
+    };
+
+    // Import: dosyadaki kelimeden yeni kayıt; fiil bilgileri ve çekimler yalnızca fiillerde alınır.
+    // Dosyadaki tarihler korunur, yoksa AppDbContext kayıt anını yazar.
+    private static WordEntity FromExport(WordExport w, string word)
+    {
+        var isVerb = w.WordType == WordType.Verb;
+
+        var entity = new WordEntity
+        {
+            Id = 0,
+            Word = word,
+            WordType = w.WordType,
+            Plural = w.Plural?.Trim(),
+            Meaning = w.Meaning?.Trim(),
+            Sample = w.Sample?.Trim(),
+            Auxiliary = isVerb ? w.Auxiliary : null,
+            PartizipII = isVerb && !string.IsNullOrWhiteSpace(w.PartizipII) ? w.PartizipII.Trim() : null,
+            IsSeparable = isVerb && w.IsSeparable,
+            CreatedAt = w.CreatedAt?.ToUniversalTime() ?? default,
+            UpdatedAt = w.UpdatedAt?.ToUniversalTime() ?? default
+        };
+
+        if (!isVerb || w.Conjugations is null)
+            return entity;
+
+        foreach (var (tense, c) in w.Conjugations)
+        {
+            var forms = new[] { c.Ich, c.Du, c.ErSieEs, c.Wir, c.Ihr, c.SieSie }
+                .Select(ConjugationService.NormalizeForm)
+                .ToList();
+
+            if (forms.All(x => x is null))
+                continue;
+
+            ConjugationBase target = tense switch
+            {
+                Tense.Praesens => entity.Praesens = new PraesensEntity(),
+                Tense.Praeteritum => entity.Praeteritum = new PraeteritumEntity(),
+                Tense.Perfekt => entity.Perfekt = new PerfektEntity(),
+                Tense.FuturI => entity.FuturI = new FuturIEntity(),
+                Tense.KonjunktivII => entity.KonjunktivII = new KonjunktivIIEntity(),
+                _ => throw new ArgumentOutOfRangeException(nameof(tense))
+            };
+
+            target.SetForms(forms);
+        }
+
+        return entity;
     }
 
     public async Task<string> CreateBackupAsync()

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Vokabeln.AppData.Enums;
 using Vokabeln.AppLib.Services;
+using Vokabeln.ViewModels;
 
 namespace Vokabeln.Controllers
 {
@@ -10,7 +12,12 @@ namespace Vokabeln.Controllers
 		[HttpGet]
 		public async Task<IActionResult> Index()
 		{
-			var stats = await gameStatsService.GetStatsAsync();
+			// Her oyun türünün istatistikleri ayrı gösterilir
+			var stats = new List<GameStatsViewModel>();
+
+			foreach (var type in Enum.GetValues<GameType>())
+				stats.Add(await gameStatsService.GetStatsAsync(type));
+
 			return View(stats);
 		}
 

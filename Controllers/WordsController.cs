@@ -15,7 +15,7 @@ using Vokabeln.ViewModels;
 namespace Vokabeln.Controllers
 {
     [Authorize]
-	public class WordsController(IWordService wordService) : Controller
+	public class WordsController(IWordService wordService, IConjugationService conjugationService) : Controller
 	{
         private const int QuickSearchLimit = 15;
 
@@ -50,7 +50,14 @@ namespace Vokabeln.Controllers
                 return NotFound();
 
             ViewData["ReturnUrl"] = returnUrl;
-            return View(entity);
+
+            return View(new WordDetailsViewModel
+            {
+                Word = entity,
+                Conjugations = entity.WordType == WordType.Verb
+                    ? await conjugationService.GetForWordAsync(entity.Id)
+                    : []
+            });
         }
 
         [HttpGet]
@@ -137,22 +144,16 @@ namespace Vokabeln.Controllers
 			WriteIndented = true,
 			PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
 			Converters = { new JsonStringEnumConverter() },
-			Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+			Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+			DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, // Boş alanlar dosyaya yazılmaz
+			PropertyNameCaseInsensitive = true
 		};
 
+		// Kelimeler, fiil bilgileri, tarihler ve çekimlerle (biçim: ViewModels/WordExportModels.cs)
 		[HttpGet]
 		public async Task<IActionResult> Export()
 		{
-			var words = await wordService.GetAllAsync();
-						
-			var export = words.Select(w => new
-			{
-				w.Word,
-				w.WordType,
-				w.Plural,
-				w.Meaning,
-				w.Sample
-			});
+			var export = await wordService.GetForExportAsync();
 
 			var bytes = JsonSerializer.SerializeToUtf8Bytes(export, ExportOptions);
 
@@ -182,11 +183,11 @@ namespace Vokabeln.Controllers
 				return View();
 			}
 
-			List<WordEntity>? words;
+			List<WordExport>? words;
 			try
 			{
 				await using var stream = file.OpenReadStream();
-				words = await JsonSerializer.DeserializeAsync<List<WordEntity>>(stream, ExportOptions);
+				words = await JsonSerializer.DeserializeAsync<List<WordExport>>(stream, ExportOptions);
 			}
 			catch (JsonException ex)
 			{

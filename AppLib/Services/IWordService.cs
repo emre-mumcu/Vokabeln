@@ -14,7 +14,8 @@ public interface IWordService
 	Task<List<QuickSearchItem>> QuickSearchAsync(string? q, int take);
 	Task DeleteAsync(int id);
 	Task<List<WordEntity>> GetAllAsync();
-	Task<ImportResult> ImportAsync(IEnumerable<WordEntity> words, ImportMode mode);
+	Task<ImportResult> ImportAsync(IEnumerable<WordExport> words, ImportMode mode);
+	Task<List<WordExport>> GetForExportAsync();
 	Task<string> CreateBackupAsync();
 	Task RestoreAsync(string uploadedDbPath);
 	Task<DbStatsViewModel> GetStatsAsync();

@@ -56,6 +56,6 @@ namespace Vokabeln.Controllers
 		}
 
 		private async Task<IActionResult> FinishAsync(WordPlayState state)
-			=> View("Result", await wordPlayService.FinishAsync(state));
+			=> View("GameResult", await wordPlayService.FinishAsync(state));
 	}
 }
