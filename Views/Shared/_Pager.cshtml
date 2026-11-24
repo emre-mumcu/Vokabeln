@@ -6,12 +6,23 @@
 @{
     int start = Math.Max(1, Model.Page - 2);
     int end = Math.Min(Model.TotalPages, Model.Page + 2);
+
+    // Arama gibi diğer sorgu parametreleri sayfa değiştirirken korunur.
+    // Checkbox'lar "true,false" şeklinde iki değer gönderebildiği için ilk değer alınır.
+    var routeData = Context.Request.Query
+        .Where(x => !x.Key.Equals("page", StringComparison.OrdinalIgnoreCase)
+                 && !x.Key.Equals("pageSize", StringComparison.OrdinalIgnoreCase))
+        .ToDictionary(x => x.Key, x => x.Value.FirstOrDefault() ?? "");
 }
 
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
 
     <div class="d-flex align-items-center gap-2">
         <form method="get" class="d-flex align-items-center gap-2">
+            @foreach (var item in routeData)
+            {
+                <input type="hidden" name="@item.Key" value="@item.Value" />
+            }
             <label for="pageSize" class="col-form-label">Sayfa başına</label>
             <select id="pageSize" name="pageSize" class="form-select form-select-sm w-auto"
                     onchange="event.target.form.submit()">
@@ -29,24 +40,24 @@
         <nav>
             <ul class="pagination pagination-sm mb-0">
                 <li class="page-item @(Model.HasPrevious ? "" : "disabled")">
-                    <a class="page-link" asp-route-page="1" asp-route-pageSize="@Model.PageSize">&laquo;</a>
+                    <a class="page-link" asp-all-route-data="routeData" asp-route-page="1" asp-route-pageSize="@Model.PageSize">&laquo;</a>
                 </li>
                 <li class="page-item @(Model.HasPrevious ? "" : "disabled")">
-                    <a class="page-link" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize">&lsaquo;</a>
+                    <a class="page-link" asp-all-route-data="routeData" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize">&lsaquo;</a>
                 </li>
 
                 @for (int i = start; i <= end; i++)
                 {
                     <li class="page-item @(i == Model.Page ? "active" : "")">
-                        <a class="page-link" asp-route-page="@i" asp-route-pageSize="@Model.PageSize">@i</a>
+                        <a class="page-link" asp-all-route-data="routeData" asp-route-page="@i" asp-route-pageSize="@Model.PageSize">@i</a>
                     </li>
                 }
 
                 <li class="page-item @(Model.HasNext ? "" : "disabled")">
-                    <a class="page-link" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize">&rsaquo;</a>
+                    <a class="page-link" asp-all-route-data="routeData" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize">&rsaquo;</a>
                 </li>
                 <li class="page-item @(Model.HasNext ? "" : "disabled")">
-                    <a class="page-link" asp-route-page="@Model.TotalPages" asp-route-pageSize="@Model.PageSize">&raquo;</a>
+                    <a class="page-link" asp-all-route-data="routeData" asp-route-page="@Model.TotalPages" asp-route-pageSize="@Model.PageSize">&raquo;</a>
                 </li>
             </ul>
         </nav>

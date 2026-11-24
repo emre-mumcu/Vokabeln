@@ -10,6 +10,8 @@ public interface IWordService
     Task<WordEntity?> GetByIdAsync(int id);
     Task<WordEntity> SaveAsync(WordEntity entity);
 	Task<PagedResult<WordEntity>> GetPagedAsync(int page, int pageSize);
+	Task<PagedResult<WordEntity>> GetPagedAsync(int page, int pageSize, WordSearch? search);
+	Task<List<QuickSearchItem>> QuickSearchAsync(string? q, int take);
 	Task DeleteAsync(int id);
 	Task<List<WordEntity>> GetAllAsync();
 	Task<ImportResult> ImportAsync(IEnumerable<WordEntity> words, ImportMode mode);

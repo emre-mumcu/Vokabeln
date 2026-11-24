@@ -1,0 +1,74 @@
+@using Vokabeln.AppData.Enums
+@using Vokabeln.ViewModels
+@model WordSearch
+
+@{
+    var modes = new (SearchMode Mode, string Text)[]
+    {
+        (SearchMode.Contains, "İçinde geçen"),
+        (SearchMode.StartsWith, "İle başlayan"),
+        (SearchMode.EndsWith, "İle biten"),
+        (SearchMode.Exact, "Tam eşleşen")
+    };
+}
+
+<div class="container mt-4">
+
+    <div class="card shadow-sm">
+        <div class="card-header"><h4 class="mb-0">Search Words</h4></div>
+        <div class="card-body">
+
+            @* Sonuçlar kelime listesinde (Index) gösterilir *@
+            <form asp-action="Index" method="get">
+
+                <div class="mb-3">
+                    <label asp-for="Q" class="form-label">Aranacak metin</label>
+                    <input asp-for="Q" class="form-control" required autofocus autocomplete="off" />
+                    <small class="fg-secondary">Büyük/küçük harf fark etmez.</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label d-block">Aranacak alanlar</label>
+
+                    <div class="form-check">
+                        <input asp-for="InWord" class="form-check-input" />
+                        <label asp-for="InWord" class="form-check-label">Kelime</label>
+                    </div>
+                    <div class="form-check">
+                        <input asp-for="InMeaning" class="form-check-input" />
+                        <label asp-for="InMeaning" class="form-check-label">Anlam</label>
+                    </div>
+                    <div class="form-check">
+                        <input asp-for="InPlural" class="form-check-input" />
+                        <label asp-for="InPlural" class="form-check-label">Çoğul</label>
+                    </div>
+                    <div class="form-check">
+                        <input asp-for="InSample" class="form-check-input" />
+                        <label asp-for="InSample" class="form-check-label">Örnek cümle</label>
+                    </div>
+
+                    <small class="fg-secondary">Hiçbiri seçilmezse kelime ve anlamda aranır.</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label d-block">Eşleşme</label>
+
+                    @foreach (var (mode, text) in modes)
+                    {
+                        <div class="form-check">
+                            <input asp-for="Mode" type="radio" value="@mode" id="mode@(mode)" class="form-check-input" />
+                            <label for="mode@(mode)" class="form-check-label">@text</label>
+                        </div>
+                    }
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a asp-action="Index" class="btn btn-outline theme-secondary">İptal</a>
+                    <button type="submit" class="btn btn-solid theme-primary"><i class="bi bi-search"></i> Ara</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+</div>

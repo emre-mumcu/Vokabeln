@@ -17,20 +17,47 @@ namespace Vokabeln.Controllers
     [Authorize]
 	public class WordsController(IWordService wordService) : Controller
 	{
-        public async Task<IActionResult> Index(int page = 1, int pageSize = 10)
-        {
-			
+        private const int QuickSearchLimit = 15;
 
-			var model = await wordService.GetPagedAsync(page, pageSize);
+        public async Task<IActionResult> Index(WordSearch search, int page = 1, int pageSize = 10)
+        {
+			ViewData["Search"] = search;
+
+			var model = await wordService.GetPagedAsync(page, pageSize, search);
 			return View(model);
 		}
 
+        // Detaylı arama formu; sonuçlar Index'te listelenir
         [HttpGet]
-        public async Task<IActionResult> Word(int id = 0, int page = 1, int pageSize = 10)
+        public IActionResult Search(WordSearch search)
         {
-            // Kaydet/İptal sonrası listenin aynı sayfasına dönmek için
-            ViewData["Page"] = page;
-            ViewData["PageSize"] = pageSize;
+            ModelState.Clear();
+            return View(search);
+        }
+
+        // Navbar'daki arama kutusunun açılır listesi için
+        [HttpGet]
+        public async Task<IActionResult> QuickSearch(string? q)
+            => Json(await wordService.QuickSearchAsync(q, QuickSearchLimit));
+
+        // "View" adı Controller.View() ile çakıştığı için action adı Details
+        [HttpGet]
+        public async Task<IActionResult> Details(int id, string? returnUrl)
+        {
+            var entity = await wordService.GetByIdAsync(id);
+
+            if (entity is null)
+                return NotFound();
+
+            ViewData["ReturnUrl"] = returnUrl;
+            return View(entity);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Word(int id = 0, string? returnUrl = null)
+        {
+            // Kaydet/İptal sonrası gelinen sayfaya (liste, arama sonucu, detay) dönmek için
+            ViewData["ReturnUrl"] = returnUrl;
 
             if (id == 0)
                 return View(new WordEntity());
@@ -45,11 +72,10 @@ namespace Vokabeln.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Word(WordEntity we, int page = 1, int pageSize = 10)
+        public async Task<IActionResult> Word(WordEntity we, string? returnUrl)
         {
-            // Form hatayla tekrar gösterilirse sayfa bilgisi kaybolmasın
-            ViewData["Page"] = page;
-            ViewData["PageSize"] = pageSize;
+            // Form hatayla tekrar gösterilirse dönüş adresi kaybolmasın
+            ViewData["ReturnUrl"] = returnUrl;
 
             if (!ModelState.IsValid) return View(we);
 
@@ -74,13 +100,19 @@ namespace Vokabeln.Controllers
 
             TempData["SuccessMessage"] = "Kelime kaydedildi.";
 
-            // Düzenlemeden sonra listeye, yeni kayıttan sonra bir sonraki kelime için boş forma dönülür
-            return isEdit ? RedirectToAction(nameof(Index), new { page, pageSize }) : RedirectToAction(nameof(Word));
+            // Düzenlemeden sonra gelinen sayfaya, yeni kayıttan sonra bir sonraki kelime için boş forma dönülür
+            return isEdit ? RedirectToLocal(returnUrl) : RedirectToAction(nameof(Word));
         }
+
+        // Yalnızca site içi adrese dönülür (open redirect'i önler), yoksa liste
+        private IActionResult RedirectToLocal(string? returnUrl)
+            => !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl)
+                ? LocalRedirect(returnUrl)
+                : RedirectToAction(nameof(Index));
 
 		[HttpPost]
 		[ValidateAntiForgeryToken]
-		public async Task<IActionResult> Delete(int id = 0)
+		public async Task<IActionResult> Delete(int id = 0, string? returnUrl = null)
 		{
 			try
 			{
@@ -90,13 +122,13 @@ namespace Vokabeln.Controllers
 					TempData["SuccessMessage"] = "Deleted!";
 				}
 
-				return RedirectToAction(nameof(Index));
+				return RedirectToLocal(returnUrl);
 			}
 			catch (Exception ex)
 			{
 				// TempData["SuccessMessage"] = "Kelime kaydedildi.";
 				TempData["ErrorMessage"] = $"{ex.Message}{ex?.InnerException?.Message}";
-				return RedirectToAction(nameof(Index));
+				return RedirectToLocal(returnUrl);
 			}
 		}
 

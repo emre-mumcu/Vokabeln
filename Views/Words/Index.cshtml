@@ -1,17 +1,61 @@
 ﻿@using Vokabeln.AppData.Entities
+@using Vokabeln.AppData.Enums
 @using Vokabeln.ViewModels
 
 @model PagedResult<WordEntity>
+
+@functions {
+    static string FieldsText(WordSearch s)
+    {
+        if (s.NoFieldSelected) return "Kelime, Anlam";
+
+        var fields = new List<string>();
+        if (s.InWord) fields.Add("Kelime");
+        if (s.InMeaning) fields.Add("Anlam");
+        if (s.InPlural) fields.Add("Çoğul");
+        if (s.InSample) fields.Add("Örnek");
+        return string.Join(", ", fields);
+    }
+
+    static string ModeText(SearchMode mode) => mode switch
+    {
+        SearchMode.StartsWith => "ile başlayan",
+        SearchMode.EndsWith => "ile biten",
+        SearchMode.Exact => "tam eşleşen",
+        _ => "içinde geçen"
+    };
+}
+
+@{
+    var search = ViewData["Search"] as WordSearch;
+
+    // Edit/View/Delete sonrası bu listeye (aynı sayfa ve arama ile) dönülür
+    var returnUrl = $"{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
+}
 
 <div class="container p-5">
 
     <div class="d-flex justify-content-between align-items-center mb-3">
 
         <h3 class="mb-0">Words</h3>
-        
+
         <a asp-action="Word" class="btn btn-primary"><i class="bi bi-plus-lg"></i> New</a>
 
     </div>
+
+    @if (search is { IsActive: true })
+    {
+        <div class="alert theme-info d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span>
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <strong>"@search.Q"</strong> · @FieldsText(search) · @ModeText(search.Mode) · @Model.TotalCount sonuç
+            </span>
+            <span class="d-flex gap-2">
+                <a asp-action="Search" asp-all-route-data="search.ToRouteValues()" class="btn-text theme-accent"><i class="bi bi-funnel"></i> Aramayı düzenle</a>
+                <a asp-action="Index" class="btn-text theme-secondary"><i class="bi bi-x-lg"></i> Temizle</a>
+            </span>
+        </div>
+    }
 
     <div class="card">
         <div class="card-body">
@@ -42,8 +86,10 @@
                                 <td>@item.WordType</td>
                                 <td>@item.Meaning</td>
                                 <td>
-                                    <a asp-action="Word" asp-route-id="@item.Id" asp-route-page="@Model.Page" asp-route-pageSize="@Model.PageSize" class="btn-text theme-accent"><i class="bi bi-pencil-square"></i> Edit</a>
+                                    <a asp-action="Details" asp-route-id="@item.Id" asp-route-returnUrl="@returnUrl" class="btn-text theme-primary"><i class="bi bi-eye"></i> View</a>
+                                    <a asp-action="Word" asp-route-id="@item.Id" asp-route-returnUrl="@returnUrl" class="btn-text theme-accent"><i class="bi bi-pencil-square"></i> Edit</a>
                                     <form asp-action="Delete" asp-route-id="@item.Id" method="post" class="d-inline">
+                                        <input type="hidden" name="returnUrl" value="@returnUrl" />
                                         <button type="submit" class="btn-text theme-danger"
                                                 data-confirm="Bu kelimeyi silmek istediğinize emin misiniz?">
                                             <i class="bi bi-trash3"></i> Delete

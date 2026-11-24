@@ -44,11 +44,78 @@ public class WordService(AppDbContext dbContext) : IWordService
     }
 
     public Task<PagedResult<WordEntity>> GetPagedAsync(int page, int pageSize)
+        => GetPagedAsync(page, pageSize, null);
+
+    public Task<PagedResult<WordEntity>> GetPagedAsync(int page, int pageSize, WordSearch? search)
     {
-        return dbContext.Words
-            .AsNoTracking()
+        var query = dbContext.Words.AsNoTracking();
+
+        if (search is { IsActive: true })
+            query = ApplySearch(query, search);
+
+        return query
             .OrderBy(x => x.Word)
             .ToPagedResultAsync(page, pageSize);
+    }
+
+    public async Task<List<QuickSearchItem>> QuickSearchAsync(string? q, int take)
+    {
+        q = q?.Trim();
+
+        if (string.IsNullOrEmpty(q) || q.Length < MinQuickSearchLength)
+            return [];
+
+        var text = EscapeLike(q);
+        var contains = $"%{text}%";
+        var starts = $"{text}%";
+        var ends = $"%{text}";
+        var startsAfterArticle = $"___ {text}%"; // "der Tisch", "die Lampe" gibi: "Tisch" ile başlayan isim sayılır
+
+        // Sıralama: kelime ile başlayanlar, kelime ile bitenler, anlamı ile başlayanlar, diğerleri
+        return await dbContext.Words
+            .AsNoTracking()
+            .Where(x => EF.Functions.Like(x.Word, contains, LikeEscape)
+                     || EF.Functions.Like(x.Meaning!, contains, LikeEscape))
+            .OrderBy(x => EF.Functions.Like(x.Word, starts, LikeEscape) || EF.Functions.Like(x.Word, startsAfterArticle, LikeEscape) ? 0
+                        : EF.Functions.Like(x.Word, ends, LikeEscape) ? 1
+                        : EF.Functions.Like(x.Meaning!, starts, LikeEscape) ? 2
+                        : 3)
+            .ThenBy(x => x.Word)
+            .Take(take)
+            .Select(x => new QuickSearchItem(x.Id, x.Word, x.Meaning))
+            .ToListAsync();
+    }
+
+    private const int MinQuickSearchLength = 2;
+    private const string LikeEscape = "\\";
+
+    // Aranan metindeki % ve _ joker karakter olarak değil, harf olarak aransın
+    private static string EscapeLike(string text)
+        => text.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+
+    private static IQueryable<WordEntity> ApplySearch(IQueryable<WordEntity> query, WordSearch search)
+    {
+        var text = EscapeLike(search.Q!.Trim());
+
+        var pattern = search.Mode switch
+        {
+            SearchMode.StartsWith => $"{text}%",
+            SearchMode.EndsWith => $"%{text}",
+            SearchMode.Exact => text, // Joker karakter yok: büyük/küçük harf duyarsız tam eşleşme
+            _ => $"%{text}%"
+        };
+
+        var inWord = search.InWord || search.NoFieldSelected;
+        var inMeaning = search.InMeaning || search.NoFieldSelected;
+        var inPlural = search.InPlural;
+        var inSample = search.InSample;
+
+        // NULL alanlarda LIKE sonucu NULL döner ve kayıt eşleşmemiş sayılır
+        return query.Where(x =>
+            (inWord && EF.Functions.Like(x.Word, pattern, LikeEscape)) ||
+            (inMeaning && EF.Functions.Like(x.Meaning!, pattern, LikeEscape)) ||
+            (inPlural && EF.Functions.Like(x.Plural!, pattern, LikeEscape)) ||
+            (inSample && EF.Functions.Like(x.Sample!, pattern, LikeEscape)));
     }
 
     public async Task DeleteAsync(int id)

@@ -1,6 +1,11 @@
 ﻿@using Vokabeln.AppData.Enums
 @model Vokabeln.AppData.Entities.WordEntity
 
+@{
+    // İptal: gelinen sayfaya (liste, arama sonucu, detay); yoksa kelime listesi
+    var returnUrl = ViewData["ReturnUrl"] as string;
+    var backUrl = !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Action("Index")!;
+}
 
 <div class="container mt-4">
 
@@ -17,8 +22,7 @@
                 <div asp-validation-summary="ModelOnly" class="fg-danger mb-3"></div>
 
                 <input type="hidden" asp-for="Id" />
-                <input type="hidden" name="page" value="@ViewData["Page"]" />
-                <input type="hidden" name="pageSize" value="@ViewData["PageSize"]" />
+                <input type="hidden" name="returnUrl" value="@ViewData["ReturnUrl"]" />
 
                 <div class="mb-3 row">
                     <label asp-for="Word" class="sm:col-2 col-form-label"></label>
@@ -60,7 +64,7 @@
                 </div>
 
                 <div class="d-flex justify-content-end gap-2">
-                    <a asp-action="Index" asp-route-page="@ViewData["Page"]" asp-route-pageSize="@ViewData["PageSize"]" class="btn btn-secondary">İptal</a>
+                    <a href="@backUrl" class="btn btn-secondary">İptal</a>
                     <button type="submit" class="btn btn-primary">Save</button>
                 </div>
     
