@@ -1,6 +1,6 @@
 ﻿<nav class="navbar md:navbar-expand bg-3 rounded-5 p-4 m-4">
     <div class="container-fluid">
-        <a class="navbar-brand" href="#">die Vokabeln</a>
+        <a class="navbar-brand" asp-controller="Home" asp-action="Index" asp-route-id="">die Vokabeln</a>
         <button class="btn-icon navbar-toggler" type="button" data-bs-toggle="drawer" data-bs-target="#navbarColor03"
                 aria-controls="navbarColor03" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon" aria-hidden="true"></span>
@@ -35,8 +35,11 @@
                             <a class="menu-item" asp-controller="Words" asp-action="Backup"><i class="bi bi-database-down menu-item-icon" aria-hidden="true"></i> Backup</a>
                             <a class="menu-item" asp-controller="Words" asp-action="Restore"><i class="bi bi-database-up menu-item-icon" aria-hidden="true"></i> Restore</a>
                             <a class="menu-item" asp-controller="Words" asp-action="Checkpoint"><i class="bi bi-database-check menu-item-icon" aria-hidden="true"></i> Close DB</a>
+                            <a class="menu-item" asp-controller="Words" asp-action="Reset"><i class="bi bi-database-x menu-item-icon" aria-hidden="true"></i> Reset DB</a>
                             <hr class="menu-divider">
                             <a class="menu-item" asp-controller="Words" asp-action="Stats"><i class="bi bi-bar-chart menu-item-icon" aria-hidden="true"></i> Stats</a>
+                            <a class="menu-item" asp-controller="Logs" asp-action="Errors" asp-route-id=""><i class="bi bi-bug menu-item-icon" aria-hidden="true"></i> Hata Kayıtları</a>
+                            <a class="menu-item" asp-controller="Logs" asp-action="Index" asp-route-id=""><i class="bi bi-journal-text menu-item-icon" aria-hidden="true"></i> Log Kayıtları</a>
                             <a class="menu-item" asp-controller="Admin" asp-action="Index"><i class="bi bi-shield-lock menu-item-icon" aria-hidden="true"></i> Admin</a>
                         </div>
                     </li>

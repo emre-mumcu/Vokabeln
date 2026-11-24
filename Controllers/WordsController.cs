@@ -284,6 +284,41 @@ namespace Vokabeln.Controllers
 			}
 		}
 
+		// Veritabanını sıfırla: onay için kutuya "dbreset" yazılması gerekir (sunucuda da kontrol edilir)
+		private const string ResetConfirmText = "dbreset";
+
+		[HttpGet]
+		public IActionResult Reset() => View();
+
+		[HttpPost]
+		[ValidateAntiForgeryToken]
+		public async Task<IActionResult> Reset(string? confirmText)
+		{
+			if (!string.Equals(confirmText?.Trim(), ResetConfirmText, StringComparison.Ordinal))
+			{
+				ModelState.AddModelError("", $"Onay için kutuya \"{ResetConfirmText}\" yazın.");
+				return View();
+			}
+
+			try
+			{
+				var backupPath = await wordService.ResetDatabaseAsync();
+
+				TempData["SuccessMessage"] = $"Veritabanı sıfırlandı. Önceki verinin yedeği: Backups/{Path.GetFileName(backupPath)}";
+				return RedirectToAction("Index", "Home");
+			}
+			catch (InvalidOperationException ex)
+			{
+				ModelState.AddModelError("", ex.Message);
+				return View();
+			}
+			catch (SqliteException ex)
+			{
+				ModelState.AddModelError("", $"Sıfırlama başarısız: {ex.Message}");
+				return View();
+			}
+		}
+
 		[HttpGet]
 		public async Task<IActionResult> Stats()
 		{

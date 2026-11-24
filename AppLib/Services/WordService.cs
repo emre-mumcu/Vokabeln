@@ -606,6 +606,91 @@ public class WordService(AppDbContext dbContext) : IWordService
         dbContext.ChangeTracker.Clear();
     }
 
+    // Veritabanını sıfırlar: tüm tablolar, indeksler, görünümler, tetikleyiciler, AUTOINCREMENT sayaçları (sqlite_sequence),
+    // istatistikler (sqlite_stat*) ve migration geçmişi silinir; VACUUM ile dosya küçültülür (boş sayfalar ve artık veri temizlenir),
+    // ardından şema migration'lardan baştan oluşturulur. Dosya silinmez (Windows'ta dosya kilidi / artık -wal riski yok).
+    // Önce mevcut verinin güvenlik yedeği Backups klasörüne alınır; yedeğin yolu döner.
+    public async Task<string> ResetDatabaseAsync()
+    {
+        // Migration'sız derlenmiş uygulamada şema geri kurulamaz: hiçbir şey silinmeden durulur
+        if (!dbContext.Database.GetMigrations().Any())
+            throw new InvalidOperationException(
+                "Uygulamada hiç migration yok; sıfırlamadan sonra tablolar oluşturulamaz. Veritabanına dokunulmadı. " +
+                "Migrations klasörünün bulunduğu makineden derleyip publish edin.");
+
+        // 1) WAL'daki veri ana dosyaya aktarılır, havuzdaki bağlantılar kapatılır
+        await CheckpointAsync();
+
+        // 2) Güvenlik yedeği
+        var backupFolder = Path.Combine(AppContext.BaseDirectory, "Backups");
+        Directory.CreateDirectory(backupFolder);
+        var backupPath = Path.Combine(backupFolder, $"before-reset-{DateTime.Now:yyyyMMdd-HHmmss}.db");
+        await BackupToAsync(backupPath);
+
+        // 3) Tüm şema nesnelerini sil
+        var conn = (SqliteConnection)dbContext.Database.GetDbConnection();
+        await dbContext.Database.OpenConnectionAsync();
+
+        try
+        {
+            async Task ExecuteAsync(string sql)
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = sql;
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            await ExecuteAsync("PRAGMA foreign_keys = OFF;");
+
+            // sqlite_sequence silinemez (tablolar silinince satırları da silinir); sqlite_stat* tabloları silinebilir.
+            // İndeksler tablolarıyla birlikte silinir.
+            var objects = new List<(string Type, string Name)>();
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = """
+                    SELECT type, name FROM sqlite_master
+                    WHERE type IN ('view', 'trigger', 'table')
+                      AND name <> 'sqlite_sequence'
+                      AND (name NOT LIKE 'sqlite_%' OR name LIKE 'sqlite_stat%')
+                    ORDER BY CASE type WHEN 'trigger' THEN 0 WHEN 'view' THEN 1 ELSE 2 END;
+                    """;
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                    objects.Add((reader.GetString(0), reader.GetString(1)));
+            }
+
+            foreach (var (type, name) in objects)
+                await ExecuteAsync($"DROP {type.ToUpperInvariant()} IF EXISTS \"{name.Replace("\"", "\"\"")}\";");
+
+            // Sayaçlar: tablolar silinince boşalır; yine de kalan satır varsa temizlenir
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE name = 'sqlite_sequence';";
+                if (Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0)
+                    await ExecuteAsync("DELETE FROM sqlite_sequence;");
+            }
+
+            await ExecuteAsync("PRAGMA user_version = 0;");
+
+            // Boş sayfalar ve silinen verinin kalıntıları dosyadan atılır (işlem içinde çalışamaz)
+            await ExecuteAsync("VACUUM;");
+
+            await ExecuteAsync("PRAGMA foreign_keys = ON;");
+        }
+        finally
+        {
+            await dbContext.Database.CloseConnectionAsync();
+        }
+
+        SqliteConnection.ClearAllPools();
+        dbContext.ChangeTracker.Clear();
+
+        // 4) Şemayı migration'lardan baştan oluştur (__EFMigrationsHistory dahil)
+        await dbContext.Database.MigrateAsync();
+
+        return backupPath;
+    }
+
     public async Task<DbStatsViewModel> GetStatsAsync()
     {
         var conn = (SqliteConnection)dbContext.Database.GetDbConnection();

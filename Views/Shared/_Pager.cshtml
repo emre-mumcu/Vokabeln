@@ -1,7 +1,7 @@
-﻿@using Vokabeln.AppData.Entities
-@using Vokabeln.ViewModels
+﻿@using Vokabeln.ViewModels
 
-@model PagedResult<WordEntity>
+@* Her türlü sayfalı liste için (kelimeler, hata ve log kayıtları) *@
+@model IPagedResult
 
 @{
     int start = Math.Max(1, Model.Page - 2);

@@ -1,0 +1,31 @@
+@using Vokabeln.ViewModels
+@model ErrorPageViewModel
+
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-body text-center py-5">
+
+            <p class="text-4xl fw-bold fg-danger mb-2">@Model.StatusCode</p>
+            <h4 class="mb-3"><i class="bi bi-exclamation-triangle"></i> @Model.Title</h4>
+
+            @if (Model.ErrorId is { } id)
+            {
+                <p class="mb-1">Hata kaydedildi. <strong>Hata No: @id</strong></p>
+                <p class="fg-secondary small mb-4">Ayrıntılar Tools → Hata Kayıtları sayfasında.</p>
+            }
+            else
+            {
+                <p class="fg-secondary mb-4">İşlem tamamlanamadı.</p>
+            }
+
+            <div class="d-flex justify-content-center flex-wrap gap-2">
+                <a asp-controller="Home" asp-action="Index" asp-route-id="" class="btn-solid theme-primary"><i class="bi bi-house"></i> Ana sayfa</a>
+                @if (Model.ErrorId is { } errorId && User.Identity?.IsAuthenticated == true)
+                {
+                    <a asp-controller="Logs" asp-action="ErrorDetails" asp-route-id="@errorId" class="btn-outline theme-secondary"><i class="bi bi-bug"></i> Hata ayrıntısı</a>
+                }
+            </div>
+
+        </div>
+    </div>
+</div>

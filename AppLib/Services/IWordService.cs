@@ -18,6 +18,7 @@ public interface IWordService
 	Task<List<WordExport>> GetForExportAsync(ExportSelection selection);
 	Task<string> CreateBackupAsync();
 	Task RestoreAsync(string uploadedDbPath);
+	Task<string> ResetDatabaseAsync();
 	Task<DbStatsViewModel> GetStatsAsync();
 	Task<int> DeleteSafetyBackupsAsync();
 	DbFilesViewModel GetDbFiles();

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Vokabeln.AppLib.Logging;
 
 namespace Vokabeln.AppLib.Filters
 {
@@ -15,25 +16,39 @@ namespace Vokabeln.AppLib.Filters
 
 		private readonly ILogger<GlobalExceptionFilter> _logger;
 		private readonly ITempDataDictionaryFactory _tempDataFactory;
+		private readonly ILogStore _logStore;
 
 		public GlobalExceptionFilter(
 			ILogger<GlobalExceptionFilter> logger,
-			ITempDataDictionaryFactory tempDataFactory)
+			ITempDataDictionaryFactory tempDataFactory,
+			ILogStore logStore)
 		{
 			_logger = logger;
 			_tempDataFactory = tempDataFactory;
+			_logStore = logStore;
 		}
 
-		public Task OnExceptionAsync(ExceptionContext context)
+		// Controller/action hataları burada yakalanır (görünüm oluşturma ve middleware hataları ErrorController'a düşer).
+		// AppException kullanıcıya gösterilen iş kuralı mesajıdır: yalnızca uyarı olarak loglanır, Hata Kayıtları'na yazılmaz.
+		public async Task OnExceptionAsync(ExceptionContext context)
 		{
 			var ex = context.Exception;
-			_logger.LogError(ex, "İşlenmeyen hata: {Path}", context.HttpContext.Request.Path);
-
-			var message = ex is AppException or KeyNotFoundException
-				? ex.Message
-				: GenericMessage;
-
 			var request = context.HttpContext.Request;
+			string message;
+
+			if (ex is AppException)
+			{
+				_logger.LogWarning("İş kuralı hatası: {Message} ({Path})", ex.Message, request.Path);
+				message = ex.Message;
+			}
+			else
+			{
+				_logger.LogError(ex, "İşlenmeyen hata: {Path}", request.Path);
+
+				var errorId = await RecordAsync(context.HttpContext, ex);
+				var text = ex is KeyNotFoundException ? ex.Message : GenericMessage;
+				message = errorId is null ? text : $"{text} (Hata No: {errorId})";
+			}
 
 			if (IsAjax(request))
 			{
@@ -51,7 +66,20 @@ namespace Vokabeln.AppLib.Filters
 			}
 
 			context.ExceptionHandled = true;
-			return Task.CompletedTask;
+		}
+
+		// Hata Kayıtları'na yazar; yazılamazsa (ör. Logs.db kilitli) kullanıcı yine de mesajı görür
+		private async Task<long?> RecordAsync(HttpContext httpContext, Exception ex)
+		{
+			try
+			{
+				return await _logStore.AddErrorAsync(ErrorLogEntry.From(httpContext, StatusCodes.Status500InternalServerError, ex));
+			}
+			catch (Exception recordError)
+			{
+				_logger.LogWarning(recordError, "Hata kaydı yazılamadı");
+				return null;
+			}
 		}
 
 		private static bool IsAjax(HttpRequest request) =>

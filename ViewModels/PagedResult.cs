@@ -1,6 +1,17 @@
 ﻿namespace Vokabeln.ViewModels
 {
-	public class PagedResult<T>
+	// _Pager partial'ı her türlü sayfalı listeyle kullanılabilsin diye
+	public interface IPagedResult
+	{
+		int Page { get; }
+		int PageSize { get; }
+		int TotalCount { get; }
+		int TotalPages { get; }
+		bool HasPrevious { get; }
+		bool HasNext { get; }
+	}
+
+	public class PagedResult<T> : IPagedResult
 	{
 		public List<T> Items { get; set; } = new();
 		public int Page { get; set; }

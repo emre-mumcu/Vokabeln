@@ -1,0 +1,26 @@
+@using Vokabeln.ViewModels
+@model ErrorPageViewModel
+
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-body text-center py-5">
+
+            <p class="text-4xl fw-bold fg-secondary mb-2">404</p>
+            <h4 class="mb-3"><i class="bi bi-signpost-split"></i> @Model.Title</h4>
+
+            <p class="fg-secondary text-break mb-1">Aradığınız adres bulunamadı:</p>
+            <p class="mb-4"><code class="text-break">@Model.Path</code></p>
+
+            @if (Model.ErrorId is { } id)
+            {
+                <p class="fg-secondary small mb-4">Kayıt No: @id</p>
+            }
+
+            <div class="d-flex justify-content-center flex-wrap gap-2">
+                <a asp-controller="Home" asp-action="Index" asp-route-id="" class="btn-solid theme-primary"><i class="bi bi-house"></i> Ana sayfa</a>
+                <a asp-controller="Words" asp-action="Index" asp-route-id="" class="btn-outline theme-secondary"><i class="bi bi-list-ul"></i> Kelime listesi</a>
+            </div>
+
+        </div>
+    </div>
+</div>

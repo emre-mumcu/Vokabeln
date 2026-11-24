@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
 using Vokabeln.AppData;
 using Vokabeln.AppLib.Filters;
+using Vokabeln.AppLib.Logging;
 using Vokabeln.AppLib.Services;
 
 ///
@@ -73,6 +74,14 @@ builder.Services.AddScoped<IConjugationPlayService, ConjugationPlayService>();
 builder.Services.AddSingleton<IWiktionaryService, WiktionaryService>();
 
 ///
+/// Log ve hata kayıtları (Tools -> Log Kayıtları / Hata Kayıtları): ayrı SQLite dosyası (ConnectionStrings:LogConnection, Logs.db).
+/// DatabaseLoggerProvider, ILogger kayıtlarını arka planda bu dosyaya yazar; seviyeler appsettings "Logging:Database" altında.
+///
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<ILogStore, SqliteLogStore>();
+builder.Logging.Services.AddSingleton<ILoggerProvider, DatabaseLoggerProvider>();
+
+///
 /// Bu noktadan sonra servis kaydı biter (artık builder.Services'e ekleme yapılmaz), 
 /// app nesnesi üzerinden middleware pipeline tanımlanır.
 /// Middleware'ler yazıldıkları sırayla çalışır. 
@@ -84,10 +93,30 @@ var app = builder.Build();
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    // Migration'lar git'te tutulmuyor: proje temiz bir clone'dan derlenirse DLL'de hiç migration olmaz.
+    // O durumda yeni veritabanında (ya da Reset DB sonrası) tablolar oluşturulamaz; açılışta uyarılır.
+    if (!dbContext.Database.GetMigrations().Any())
+    {
+        app.Logger.LogWarning(
+            "Derlenmiş uygulamada hiç EF Core migration'ı yok. Yeni bir veritabanında tablolar oluşturulamaz ve Reset DB çalışmaz. " +
+            "Migrations klasörünün bulunduğu makineden derleyip publish edin. Veritabanı: {DataSource}",
+            dbContext.Database.GetDbConnection().DataSource);
+    }
+
     await dbContext.Database.MigrateAsync();
 }
 
-/// 
+///
+/// Merkezi hata yönetimi (ErrorController):
+/// * UseExceptionHandler: MVC filtresine (GlobalExceptionFilter) düşmeyen hatalar (görünüm oluşturma, middleware) -> /Error (500 sayfası)
+/// * UseStatusCodePagesWithReExecute: gövdesiz hata yanıtları (404 vb.) -> /Error/404; adres değişmez, istek yeniden çalıştırılır
+/// Her ikisi de Hata Kayıtları'na yazılır. Pipeline'ın başında olmalılar ki sonrasındaki her şeyi kapsasınlar.
+///
+app.UseExceptionHandler("/Error");
+app.UseStatusCodePagesWithReExecute("/Error/{0}");
+
+///
 /// HTTP isteklerini otomatik olarak HTTPS'e yönlendirir (http://... → https://...).
 /// 
 app.UseHttpsRedirection();

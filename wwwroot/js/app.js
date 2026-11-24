@@ -363,3 +363,34 @@ window.Wiktionary = (function () {
 })();
 
 // Wiktionary
+
+
+// Check all
+// data-check-all="ids" taşıyan onay kutusu, aynı formdaki name="ids" kutularının hepsini işaretler / kaldırır.
+// Örnek: <input type="checkbox" data-check-all="ids" /> ... <input type="checkbox" name="ids" value="5" />
+
+(function () {
+    document.addEventListener("change", function (e) {
+        const master = e.target.closest("[data-check-all]");
+
+        if (master && master.form) {
+            master.form.querySelectorAll('input[type="checkbox"][name="' + master.dataset.checkAll + '"]')
+                .forEach(function (box) { box.checked = master.checked; });
+            return;
+        }
+
+        // Tek tek işaretlenince ana kutu güncellenir (hepsi seçiliyse işaretli, bir kısmı seçiliyse belirsiz)
+        const box = e.target;
+        if (!box.form || box.type !== "checkbox" || !box.name) return;
+
+        const masterBox = box.form.querySelector('[data-check-all="' + box.name + '"]');
+        if (!masterBox) return;
+
+        const all = Array.from(box.form.querySelectorAll('input[type="checkbox"][name="' + box.name + '"]'));
+        const checked = all.filter(function (x) { return x.checked; }).length;
+        masterBox.checked = checked === all.length;
+        masterBox.indeterminate = checked > 0 && checked < all.length;
+    });
+})();
+
+// Check all
