@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Vokabeln.AppData;
 using Vokabeln.AppData.Entities;
 using Vokabeln.AppData.Enums;
+using Vokabeln.AppLib.Extensions;
 using Vokabeln.AppLib.Filters;
 using Vokabeln.ViewModels;
 
@@ -187,6 +188,57 @@ public class ConjugationService(AppDbContext dbContext, IWiktionaryService wikti
             dbContext.Entry(word).Property(x => x.UpdatedAt).IsModified = true;
 
         await dbContext.SaveChangesAsync();
+
+        return result;
+    }
+
+    public async Task<ConjugationCoverage> GetCoverageAsync()
+    {
+        var verbIds = await dbContext.Words.AsNoTracking().Where(x => x.WordType == WordType.Verb).Select(x => x.Id).ToListAsync();
+        var coverage = new ConjugationCoverage { VerbCount = verbIds.Count };
+
+        var complete = verbIds.ToHashSet();
+        foreach (var tense in Enum.GetValues<Tense>())
+        {
+            var ids = await GetVerbIdsWithAsync(tense);
+            coverage.ByTense[tense] = ids.Count;
+            complete.IntersectWith(ids);
+        }
+
+        coverage.CompleteCount = complete.Count;
+        return coverage;
+    }
+
+    // Tüm fiillerin eksik zamanları Wiktionary kaynağından doldurulur (girilmiş çekimlere dokunulmaz).
+    // Fiil fiil kaydedilir: bir fiilde sorun olsa da diğerleri kaydedilir. Güvenlik yedeğini çağıran alır.
+    public async Task<BulkConjugationImportResult> ImportAllFromWiktionaryAsync()
+    {
+        // Kaynak dosya yoksa hiçbir fiile dokunmadan durulur
+        var probe = await wiktionaryService.LookupAsync("sein", WordType.Verb);
+        if (!probe.Available)
+            return new() { Error = probe.Message };
+
+        var verbs = await dbContext.Words
+            .AsNoTracking()
+            .Where(x => x.WordType == WordType.Verb)
+            .OrderBy(x => x.Word)
+            .Select(x => new { x.Id, x.Word })
+            .ToListAsync();
+
+        var result = new BulkConjugationImportResult { VerbCount = verbs.Count };
+
+        foreach (var verb in verbs)
+        {
+            var single = await ImportFromWiktionaryAsync(verb.Id, overwrite: false);
+            dbContext.ChangeTracker.Clear();
+
+            if (single.Error is not null)
+                result.NotFound.Add(verb.Word);
+            else if (single.Saved.Count > 0)
+                result.Filled.Add($"{verb.Word} ({string.Join(", ", single.Saved.Select(t => t.GetDescription()))})");
+            else
+                result.UnchangedCount++;
+        }
 
         return result;
     }

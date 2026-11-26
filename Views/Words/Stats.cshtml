@@ -93,21 +93,6 @@
     <div class="card shadow-sm mb-4">
         <div class="card-header"><h4 class="mb-0">Güvenlik yedekleri</h4></div>
         <div class="card-body">
-            <table class="table mb-0">
-                <tbody>
-                    <tr><th>Dosya sayısı</th><td>@Model.BackupCount</td></tr>
-                    <tr><th>Toplam boyut</th><td>@Bytes(Model.BackupBytes)</td></tr>
-                    <tr><th>Son yedek</th><td>@(Model.LastBackup?.ToString("dd.MM.yyyy HH:mm") ?? "-")</td></tr>
-                </tbody>
-            </table>
-
-
-        </div>
-    </div>
-
-    <div class="card shadow-sm mb-4">
-        <div class="card-header"><h4 class="mb-0">Güvenlik yedekleri</h4></div>
-        <div class="card-body">
             <table class="table mb-3">
                 <tbody>
                     <tr><th>Dosya sayısı</th><td>@Model.BackupCount</td></tr>
@@ -119,8 +104,11 @@
             @if (Model.BackupCount > 0)
             {
                 <form asp-action="DeleteSafetyBackups" method="post">
-                    <button type="submit" class="btn-link fg-danger p-0"
-                            data-confirm="Tüm güvenlik yedekleri kalıcı olarak silinecek. Devam edilsin mi?">Yedekleri sil</button>
+                    @* Restore, Reset DB ve toplu çekim getirme öncesi alınan yedekler (Backups/before-*.db) *@
+                    <button type="submit" class="btn-text theme-danger"
+                            data-confirm="Tüm güvenlik yedekleri kalıcı olarak silinecek. Devam edilsin mi?">
+                        <i class="bi bi-trash3"></i> Yedekleri sil
+                    </button>
                 </form>
             }
         </div>

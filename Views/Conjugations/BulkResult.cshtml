@@ -1,0 +1,62 @@
+@using Vokabeln.ViewModels
+@model BulkConjugationImportResult
+
+<div class="container mt-4">
+
+    <div class="card shadow-sm">
+
+        <div class="card-header">
+            <h4 class="mb-0"><i class="bi bi-cloud-download"></i> Çekim Getirme Sonucu</h4>
+        </div>
+
+        <div class="card-body">
+
+            @if (Model.Error is not null)
+            {
+                <div class="alert theme-danger">@Model.Error</div>
+            }
+            else
+            {
+                <div class="alert theme-success">
+                    <strong>@Model.Filled.Count</strong> fiilin çekimleri dolduruldu
+                    <span class="fg-secondary">· @Model.VerbCount fiilden @Model.UnchangedCount tanesinde değişiklik olmadı, @Model.NotFound.Count tanesi kaynakta bulunamadı</span>
+                </div>
+
+                @if (Model.Filled.Count > 0)
+                {
+                    <h6 class="text-sm text-uppercase fg-secondary mb-1">Doldurulan fiiller</h6>
+                    <ul class="mb-4">
+                        @foreach (var item in Model.Filled)
+                        {
+                            <li>@item</li>
+                        }
+                    </ul>
+                }
+
+                @if (Model.NotFound.Count > 0)
+                {
+                    <h6 class="text-sm text-uppercase fg-secondary mb-1">Kaynakta çekimi bulunamayanlar</h6>
+                    <p class="small fg-secondary mb-1">Bunların çekimleri detay sayfasından elle girilebilir.</p>
+                    <ul class="mb-4">
+                        @foreach (var word in Model.NotFound)
+                        {
+                            <li>@word</li>
+                        }
+                    </ul>
+                }
+            }
+
+            @if (Model.BackupPath is not null)
+            {
+                <p class="small fg-secondary">Önceki verinin yedeği: Backups/@System.IO.Path.GetFileName(Model.BackupPath)</p>
+            }
+
+            <div class="d-flex justify-content-end gap-2">
+                <a asp-action="Bulk" class="btn-outline theme-secondary">Çekim durumu</a>
+                <a asp-controller="Words" asp-action="Print" asp-route-SelectedType="Verb" class="btn-solid theme-primary"><i class="bi bi-printer"></i> Yazdırmaya git</a>
+            </div>
+
+        </div>
+    </div>
+
+</div>

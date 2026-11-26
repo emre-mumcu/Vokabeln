@@ -19,12 +19,14 @@ public interface IWordService
 	Task<string> CreateBackupAsync();
 	Task RestoreAsync(string uploadedDbPath);
 	Task<string> ResetDatabaseAsync();
+	Task<string> CreateSafetyBackupAsync(string operation);
 	Task<DbStatsViewModel> GetStatsAsync();
 	Task<int> DeleteSafetyBackupsAsync();
 	DbFilesViewModel GetDbFiles();
 	Task<CheckpointResult> CheckpointAsync();
 	Task<List<WordEntity>> GetForPrintAsync(WordType? type, bool der, bool die, bool das);
 	Task<List<WordEntity>> GetForPrintAsync(WordSearch? search);
+	Task<List<WordEntity>> GetVerbsForPrintAsync(WordSearch? search = null);
 	Task<List<TableStat>> GetTablesAsync();
 	Task<TableDetail?> GetTableDetailAsync(string table);
 	Task<SqlResult> ExecuteSqlAsync(string sql, bool allowWrite);

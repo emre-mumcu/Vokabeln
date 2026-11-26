@@ -9,8 +9,26 @@ namespace Vokabeln.Controllers
 {
 	// Fiil çekimleri: kelimenin detay sayfasından eklenir/düzenlenir, kayıttan sonra oraya dönülür
 	[Authorize]
-	public class ConjugationsController(IConjugationService conjugationService) : Controller
+	public class ConjugationsController(IConjugationService conjugationService, IWordService wordService) : Controller
 	{
+		// Tools -> Çekimleri getir: fiillerin çekim durumu ve toplu getirme butonu
+		[HttpGet]
+		public async Task<IActionResult> Bulk() => View(await conjugationService.GetCoverageAsync());
+
+		// Tüm fiillerin eksik zamanları Wiktionary kaynağından doldurulur; önce güvenlik yedeği alınır
+		[HttpPost]
+		[ValidateAntiForgeryToken]
+		[ActionName("Bulk")] // GET ile aynı ad; URL aynı kalır
+		public async Task<IActionResult> BulkPost()
+		{
+			var backupPath = await wordService.CreateSafetyBackupAsync("conjugations");
+
+			var result = await conjugationService.ImportAllFromWiktionaryAsync();
+			result.BackupPath = backupPath;
+
+			return View("BulkResult", result);
+		}
+
 		[HttpGet]
 		public async Task<IActionResult> Edit(int wordId, Tense tense, string? returnUrl)
 		{

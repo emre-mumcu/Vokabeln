@@ -12,5 +12,7 @@ public interface IConjugationService
     Task SaveAsync(ConjugationFormViewModel form);
     Task DeleteAsync(int wordId, Tense tense);
     Task<ConjugationImportResult> ImportFromWiktionaryAsync(int wordId, bool overwrite);
+    Task<ConjugationCoverage> GetCoverageAsync();
+    Task<BulkConjugationImportResult> ImportAllFromWiktionaryAsync();
     Task<List<int>> GetVerbIdsWithAsync(Tense tense);
 }

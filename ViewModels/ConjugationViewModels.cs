@@ -34,6 +34,39 @@ namespace Vokabeln.ViewModels
 		public List<Tense> Missing { get; set; } = [];
 	}
 
+	// Tools -> Çekimleri getir: fiillerin çekim durumu
+	public class ConjugationCoverage
+	{
+		public int VerbCount { get; set; }
+
+		// Beş zamanın hepsi girilmiş fiiller
+		public int CompleteCount { get; set; }
+
+		// Zaman -> çekimi girilmiş fiil sayısı
+		public Dictionary<Tense, int> ByTense { get; set; } = [];
+
+		public int IncompleteCount => VerbCount - CompleteCount;
+	}
+
+	// Tüm fiillerin eksik çekimlerinin Wiktionary'den toplu getirilmesi sonucu
+	public class BulkConjugationImportResult
+	{
+		// İşlem hiç yapılamadıysa (ör. kaynak dosya yok)
+		public string? Error { get; set; }
+
+		public string? BackupPath { get; set; }
+		public int VerbCount { get; set; }
+
+		// "anfangen (Präsens, Präteritum, ...)"
+		public List<string> Filled { get; set; } = [];
+
+		// Zaten tüm zamanları girilmiş olan ya da kaynakta yeni zaman bulunmayan fiiller
+		public int UnchangedCount { get; set; }
+
+		// Kaynakta hiç çekimi bulunamayan fiiller
+		public List<string> NotFound { get; set; } = [];
+	}
+
 	public class WordDetailsViewModel
 	{
 		public WordEntity Word { get; set; } = new();

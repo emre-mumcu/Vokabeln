@@ -1,0 +1,105 @@
+@using Vokabeln.AppData.Entities
+@using Vokabeln.AppData.Enums
+@using Vokabeln.AppLib.Extensions
+@using Vokabeln.ViewModels
+@model PrintViewModel
+
+@* Fiil çekim tabloları (Print sayfası, tür "Verb" ve en az bir zaman seçiliyken):
+   her fiil için başlıkta fiil ve anlam, satırlarda kişiler (ich ... sie/Sie), sütunlarda seçilen zamanlar.
+   BlankForms seçiliyse hücreler boş basılır (alıştırma kağıdı). Bir fiilin tablosu sayfa arasında bölünmez. *@
+
+@{
+    // Zamanlar her zaman aynı sırada (Präsens -> Konjunktiv II)
+    var tenses = Enum.GetValues<Tense>().Where(Model.Tenses.Contains).ToList();
+}
+
+<style>
+    .conj-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11pt;
+        margin-bottom: 8mm;
+        break-inside: avoid;
+        table-layout: fixed;
+    }
+
+        .conj-table th,
+        .conj-table td {
+            border: 1px solid #999;
+            padding: 4px 6px;
+            vertical-align: top;
+            overflow-wrap: anywhere;
+        }
+
+        .conj-table .conj-verb {
+            font-size: 13pt;
+            font-weight: bold;
+        }
+
+        .conj-table .conj-meaning {
+            font-size: 12pt;
+        }
+
+        .conj-table .conj-tense {
+            font-weight: normal;
+            text-align: center;
+        }
+
+        .conj-table .conj-person {
+            width: 16%;
+            font-size: 12pt;
+        }
+
+        .conj-table .conj-form {
+            height: 2.2em;
+        }
+
+    @@media print {
+        :root, [data-bs-theme] {
+            color-scheme: light !important;
+        }
+
+        body {
+            background: #fff !important;
+        }
+
+        nav.navbar, .no-print {
+            display: none !important;
+        }
+
+        @@page {
+            margin: 15mm;
+        }
+    }
+</style>
+
+@foreach (var w in Model.Words)
+{
+    <table class="conj-table">
+        <thead>
+            <tr>
+                <th class="conj-verb conj-person">@w.Word</th>
+                <th class="conj-meaning fw-normal" colspan="@tenses.Count">@w.Meaning</th>
+            </tr>
+            <tr>
+                <th class="conj-person"></th>
+                @foreach (var tense in tenses)
+                {
+                    <th class="conj-tense">@tense.GetDescription()</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @for (var i = 0; i < ConjugationBase.PersonLabels.Length; i++)
+            {
+                <tr>
+                    <td class="conj-person">@ConjugationBase.PersonLabels[i]</td>
+                    @foreach (var tense in tenses)
+                    {
+                        <td class="conj-form">@(Model.BlankForms ? "" : w.ConjugationOf(tense)?.GetForms()[i])</td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+}

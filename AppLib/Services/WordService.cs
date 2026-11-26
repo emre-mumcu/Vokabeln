@@ -583,9 +583,7 @@ public class WordService(AppDbContext dbContext) : IWordService
         await CheckpointAsync();
 
         // 3) Geri yüklemeden önce mevcut verinin güvenlik yedeğini al
-        var backupFolder = Path.Combine(AppContext.BaseDirectory, "Backups");
-        Directory.CreateDirectory(backupFolder);
-        await BackupToAsync(Path.Combine(backupFolder, $"before-restore-{DateTime.Now:yyyyMMdd-HHmmss}.db"));
+        await CreateSafetyBackupAsync("restore");
 
         // 4) Yüklenen dosyayı çalışan veritabanının üzerine yaz
         var live = (SqliteConnection)dbContext.Database.GetDbConnection();
@@ -622,10 +620,7 @@ public class WordService(AppDbContext dbContext) : IWordService
         await CheckpointAsync();
 
         // 2) Güvenlik yedeği
-        var backupFolder = Path.Combine(AppContext.BaseDirectory, "Backups");
-        Directory.CreateDirectory(backupFolder);
-        var backupPath = Path.Combine(backupFolder, $"before-reset-{DateTime.Now:yyyyMMdd-HHmmss}.db");
-        await BackupToAsync(backupPath);
+        var backupPath = await CreateSafetyBackupAsync("reset");
 
         // 3) Tüm şema nesnelerini sil
         var conn = (SqliteConnection)dbContext.Database.GetDbConnection();
@@ -782,10 +777,10 @@ public class WordService(AppDbContext dbContext) : IWordService
             .Where(g => g.Count() > 1)
             .CountAsync();
 
-        // Güvenlik yedekleri
-        var backupFolder = Path.Combine(AppContext.BaseDirectory, "Backups");
+        // Güvenlik yedekleri (Restore, Reset DB ve toplu çekim getirme öncesi: before-*.db)
+        var backupFolder = SafetyBackupFolder;
         var backupFiles = Directory.Exists(backupFolder)
-            ? new DirectoryInfo(backupFolder).GetFiles("before-restore-*.db")
+            ? new DirectoryInfo(backupFolder).GetFiles(SafetyBackupPattern)
             : [];
 
         return new DbStatsViewModel
@@ -831,16 +826,31 @@ public class WordService(AppDbContext dbContext) : IWordService
     private static long FileSize(string path)
         => !string.IsNullOrEmpty(path) && File.Exists(path) ? new FileInfo(path).Length : 0;
 
+    // Güvenlik yedekleri uygulamanın Backups klasöründe "before-<işlem>-<zaman>.db" adıyla tutulur
+    private static string SafetyBackupFolder => Path.Combine(AppContext.BaseDirectory, "Backups");
+    private const string SafetyBackupPattern = "before-*.db";
+
+    // Veriyi değiştiren işlemlerden (Restore, Reset DB, toplu çekim getirme) önce alınır; yedeğin yolu döner
+    public async Task<string> CreateSafetyBackupAsync(string operation)
+    {
+        await CheckpointAsync();
+
+        Directory.CreateDirectory(SafetyBackupFolder);
+        var path = Path.Combine(SafetyBackupFolder, $"before-{operation}-{DateTime.Now:yyyyMMdd-HHmmss}.db");
+        await BackupToAsync(path);
+        return path;
+    }
+
     public Task<int> DeleteSafetyBackupsAsync()
     {
-        var folder = Path.Combine(AppContext.BaseDirectory, "Backups");
+        var folder = SafetyBackupFolder;
 
         if (!Directory.Exists(folder))
             return Task.FromResult(0);
 
         var deleted = 0;
 
-        foreach (var file in Directory.GetFiles(folder, "before-restore-*.db"))
+        foreach (var file in Directory.GetFiles(folder, SafetyBackupPattern))
         {
             try
             {
@@ -924,6 +934,27 @@ public class WordService(AppDbContext dbContext) : IWordService
         }
 
         return SortForPrint(await query.ToListAsync());
+    }
+
+    // Çekim tablolu yazdırma: fiiller, beş zamanın çekimleriyle birlikte.
+    // Arama verilirse (Print List) yalnızca aramaya uyan fiiller; verilmezse (Print) tüm fiiller.
+    public async Task<List<WordEntity>> GetVerbsForPrintAsync(WordSearch? search = null)
+    {
+        var query = dbContext.Words.AsNoTracking();
+
+        if (search is { IsActive: true })
+            query = ApplySearch(query, search);
+
+        var verbs = await query
+            .Where(x => x.WordType == WordType.Verb)
+            .Include(x => x.Praesens)
+            .Include(x => x.Praeteritum)
+            .Include(x => x.Perfekt)
+            .Include(x => x.FuturI)
+            .Include(x => x.KonjunktivII)
+            .ToListAsync();
+
+        return SortForPrint(verbs);
     }
 
     // Listedeki kelimelerin (arama sonucu ya da tümü) sayfalama olmadan yazdırılması için

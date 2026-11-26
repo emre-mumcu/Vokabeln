@@ -1,0 +1,45 @@
+@using Vokabeln.AppData.Enums
+@using Vokabeln.AppLib.Extensions
+@using Vokabeln.ViewModels
+@model ConjugationCoverage
+
+<div class="container mt-4">
+
+    <div class="card shadow-sm">
+
+        <div class="card-header">
+            <h4 class="mb-0"><i class="bi bi-cloud-download"></i> Çekimleri Wiktionary'den Getir</h4>
+        </div>
+
+        <div class="card-body">
+
+            <p class="fg-secondary">
+                Tüm fiillerin <strong>girilmemiş</strong> zamanları yerel Wiktionary kaynağından (wiktionary-de.json) doldurulur.
+                Girilmiş çekimlere dokunulmaz. Boş Hilfsverb ve Partizip II alanları da kaynaktan tamamlanır.
+                İşlemden önce mevcut verinin güvenlik yedeği <code>Backups</code> klasörüne alınır.
+            </p>
+
+            <table class="table table-sm mb-4">
+                <tbody>
+                    <tr><th class="fw-normal fg-secondary">Fiil sayısı</th><td>@Model.VerbCount</td></tr>
+                    <tr><th class="fw-normal fg-secondary">Beş zamanı da girilmiş</th><td>@Model.CompleteCount</td></tr>
+                    <tr><th class="fw-normal fg-secondary">Eksik zamanı olan</th><td><strong>@Model.IncompleteCount</strong></td></tr>
+                    @foreach (var tense in Enum.GetValues<Tense>())
+                    {
+                        <tr><th class="fw-normal fg-secondary">@tense.GetDescription()</th><td>@Model.ByTense.GetValueOrDefault(tense) / @Model.VerbCount</td></tr>
+                    }
+                </tbody>
+            </table>
+
+            <form asp-action="Bulk" method="post" class="d-flex justify-content-end gap-2">
+                <a asp-controller="Words" asp-action="Index" class="btn-outline theme-secondary">İptal</a>
+                <button type="submit" class="btn-solid theme-primary" disabled="@(Model.IncompleteCount == 0)"
+                        data-confirm="@($"{Model.IncompleteCount} fiilin eksik çekimleri Wiktionary'den doldurulacak (girilmiş çekimlere dokunulmaz).")">
+                    <i class="bi bi-cloud-download"></i> Eksik çekimleri getir
+                </button>
+            </form>
+
+        </div>
+    </div>
+
+</div>

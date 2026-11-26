@@ -1,6 +1,6 @@
-@using Vokabeln.AppData.Entities
+@using Vokabeln.AppData.Enums
 @using Vokabeln.ViewModels
-@model List<WordEntity>
+@model PrintViewModel
 
 @{
     var search = ViewData["Search"] as WordSearch;
@@ -8,6 +8,12 @@
     // Geri: yazdırmanın başlatıldığı liste/arama sayfası
     var returnUrl = ViewData["ReturnUrl"] as string;
     var backUrl = !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Action("Index")!;
+
+    // Listeden ilk gelişte yazdırma penceresi kendiliğinden açılır; seçenek değiştirilince açılmaz
+    var autoPrint = ViewData["AutoPrint"] as bool? ?? true;
+
+    // Liste "Verb" türüyle filtrelenmişse çekim tablosu seçenekleri gösterilir (Print sayfasıyla aynı kural)
+    var isVerbList = search?.SelectedType == WordType.Verb;
 }
 
 <div class="container mt-4">
@@ -25,12 +31,36 @@
                 {
                     <text>Tüm kelimeler</text>
                 }
-                · <strong>@Model.Count</strong> kelime
+                · <strong>@Model.Words.Count</strong> kelime
             </p>
+
+            @if (isVerbList)
+            {
+                @* Seçimler aynı aramayla sayfayı yeniden yükler; arama değerleri gizli alanlarla korunur *@
+                <form asp-action="PrintList" method="get" class="mb-3">
+                    @foreach (var (key, value) in search!.ToRouteValues())
+                    {
+                        <input type="hidden" name="@key" value="@value" />
+                    }
+                    <input type="hidden" name="returnUrl" value="@returnUrl" />
+                    <input type="hidden" name="options" value="true" />
+
+                    <partial name="_TenseChecks" model="Model.Tenses" />
+
+                    <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="blankForms" name="blankForms" value="true" checked="@Model.BlankForms" />
+                        <label for="blankForms" class="form-check-label">
+                            Çekimleri boş bırak <small class="fg-secondary">(alıştırma kağıdı: hücreler doldurulmak üzere boş basılır)</small>
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn-outline theme-secondary"><i class="bi bi-arrow-repeat"></i> Uygula</button>
+                </form>
+            }
 
             <div class="d-flex justify-content-end gap-2">
                 <a href="@backUrl" class="btn-outline theme-secondary"><i class="bi bi-arrow-left"></i> Geri</a>
-                <button type="button" id="printButton" class="btn-solid theme-primary" disabled="@(Model.Count == 0)">
+                <button type="button" id="printButton" class="btn-solid theme-primary" disabled="@(Model.Words.Count == 0)">
                     <i class="bi bi-printer"></i> Yazdır
                 </button>
             </div>
@@ -38,13 +68,27 @@
         </div>
     </div>
 
-    @if (Model.Count == 0)
+    @* Çekimi girilmemiş fiiller boş tablo olarak basılır; alıştırma kağıdında (boş bırak) uyarı gerekmez *@
+    @if (Model.IsConjugationLayout && !Model.BlankForms && Model.MissingConjugationCount > 0)
+    {
+        <div class="alert theme-warning no-print">
+            <i class="bi bi-exclamation-triangle"></i>
+            <strong>@Model.MissingConjugationCount</strong> / @Model.Words.Count fiilin seçilen zamanlardan en az birinde çekimi girilmemiş; bu hücreler boş basılır.
+            <a asp-controller="Conjugations" asp-action="Bulk">Eksik çekimleri Wiktionary'den getir</a>
+        </div>
+    }
+
+    @if (Model.Words.Count == 0)
     {
         <p class="no-print">Yazdırılacak kelime yok.</p>
     }
+    else if (Model.IsConjugationLayout)
+    {
+        <partial name="_PrintConjugations" model="Model" />
+    }
     else
     {
-        <partial name="_PrintTable" model="Model" />
+        <partial name="_PrintTable" model="Model.Words" />
     }
 
 </div>
@@ -55,8 +99,8 @@
             const button = document.getElementById("printButton");
             button.addEventListener("click", function () { window.print(); });
 
-            // Listeden "Yazdır" ile gelindiği için yazdırma penceresi sayfa yüklenince kendiliğinden açılır
-            if (!button.disabled) {
+            // Listeden "Yazdır" ile gelindiğinde yazdırma penceresi sayfa yüklenince kendiliğinden açılır
+            if (!button.disabled && @(autoPrint ? "true" : "false")) {
                 window.addEventListener("load", function () { window.print(); });
             }
         })();

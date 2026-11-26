@@ -9,6 +9,7 @@ using System.Text.Json.Serialization;
 using Vokabeln.AppData;
 using Vokabeln.AppData.Entities;
 using Vokabeln.AppData.Enums;
+using Vokabeln.AppLib.Extensions;
 using Vokabeln.AppLib.Services;
 using Vokabeln.ViewModels;
 
@@ -367,21 +368,39 @@ namespace Vokabeln.Controllers
 			// Formdaki checkbox'lar ModelState yerine bu düzeltilmiş değerleri göstersin
 			ModelState.Clear();
 
-			filter.Words = await wordService.GetForPrintAsync(
-				filter.SelectedType, filter.Der, filter.Die, filter.Das);
+			// Yalnızca tür "Verb" iken ve en az bir zaman seçildiyse çekim tablolu düzen; aksi halde eski düzen
+			if (filter.SelectedType != WordType.Verb)
+				filter.Tenses = [];
+
+			filter.Words = filter.IsConjugationLayout
+				? await wordService.GetVerbsForPrintAsync()
+				: await wordService.GetForPrintAsync(filter.SelectedType, filter.Der, filter.Die, filter.Das);
 
 			return View(filter);
 		}
 
 		// Listedeki kelimeleri yazdırır: arama varsa sonuçları, yoksa tümünü (sayfalama olmadan)
 		[HttpGet]
-		public async Task<IActionResult> PrintList(WordSearch search, string? returnUrl)
+		// tenses/blankForms: listenin türü "Verb" iken çekim tablolu düzen (Print sayfasıyla aynı kural).
+		// options: sayfadaki seçenek formundan gelindi (yazdırma penceresi kendiliğinden açılmaz).
+		public async Task<IActionResult> PrintList(WordSearch search, string? returnUrl, List<Tense>? tenses, bool blankForms, bool options)
 		{
 			ViewData["Search"] = search;
 			ViewData["ReturnUrl"] = returnUrl;
+			ViewData["AutoPrint"] = !options;
 
-			var words = await wordService.GetForPrintAsync(search);
-			return View(words);
+			var model = new PrintViewModel
+			{
+				SelectedType = search.SelectedType,
+				Tenses = search.SelectedType == WordType.Verb ? tenses ?? [] : [],
+				BlankForms = blankForms
+			};
+
+			model.Words = model.IsConjugationLayout
+				? await wordService.GetVerbsForPrintAsync(search)
+				: await wordService.GetForPrintAsync(search);
+
+			return View(model);
 		}
 
 		private bool IsLocalRequest()

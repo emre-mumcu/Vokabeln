@@ -34,6 +34,18 @@
                     </div>
                 </div>
 
+                @* Yalnızca tür "Verb" iken: zaman seçilirse her fiil çekim tablosuyla basılır, seçilmezse eski düzen *@
+                <div id="verbBox" @(Model.SelectedType == WordType.Verb ? "" : "hidden")>
+                    <partial name="_TenseChecks" model="Model.Tenses" />
+
+                    <div class="form-check mb-3">
+                        <input asp-for="BlankForms" class="form-check-input" />
+                        <label asp-for="BlankForms" class="form-check-label">
+                            Çekimleri boş bırak <small class="fg-secondary">(alıştırma kağıdı: hücreler doldurulmak üzere boş basılır)</small>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="d-flex justify-content-end gap-2">
                     <button type="submit" class="btn-outline theme-secondary">Listele</button>
                     <button type="button" class="btn-solid theme-primary" onclick="window.print()">Yazdır</button>
@@ -42,11 +54,31 @@
         </div>
     </div>
 
-    <p class="no-print">@Model.Words.Count kelime listelendi.</p>
+    <p class="no-print">
+        @Model.Words.Count kelime listelendi.
+        @if (Model.IsConjugationLayout)
+        {
+            <span class="fg-secondary">Her fiil çekim tablosuyla basılır; tablolar sayfa arasında bölünmez.</span>
+        }
+    </p>
+
+    @* Çekimi girilmemiş fiiller boş tablo olarak basılır; alıştırma kağıdında (boş bırak) uyarı gerekmez *@
+    @if (Model.IsConjugationLayout && !Model.BlankForms && Model.MissingConjugationCount > 0)
+    {
+        <div class="alert theme-warning no-print">
+            <i class="bi bi-exclamation-triangle"></i>
+            <strong>@Model.MissingConjugationCount</strong> / @Model.Words.Count fiilin seçilen zamanlardan en az birinde çekimi girilmemiş; bu hücreler boş basılır.
+            <a asp-controller="Conjugations" asp-action="Bulk">Eksik çekimleri Wiktionary'den getir</a>
+        </div>
+    }
 
     @if (Model.Words.Count == 0)
     {
         <p class="no-print">Seçilen filtreye uygun kelime yok.</p>
+    }
+    else if (Model.IsConjugationLayout)
+    {
+        <partial name="_PrintConjugations" model="Model" />
     }
     else
     {
@@ -58,11 +90,14 @@
     <script>
         (function () {
             const select = document.getElementById("typeSelect");
-            const box = document.getElementById("articleBox");
+            const articleBox = document.getElementById("articleBox");
+            const verbBox = document.getElementById("verbBox");
             const nounValue = "@((int)WordType.Noun)";
+            const verbValue = "@((int)WordType.Verb)";
 
             select.addEventListener("change", function () {
-                box.hidden = select.value !== nounValue;
+                articleBox.hidden = select.value !== nounValue;
+                verbBox.hidden = select.value !== verbValue;
             });
         })();
     </script>
